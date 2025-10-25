@@ -1,0 +1,74 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+*.local
+
+# Backend Laravel
+Backend/vendor/
+Backend/node_modules/
+Backend/.env
+Backend/.env.backup
+Backend/.env.production
+Backend/storage/*.key
+Backend/storage/pail/
+Backend/public/hot
+Backend/public/storage
+Backend/public/build
+Backend/.phpunit.cache
+Backend/.phpunit.result.cache
+Backend/auth.json
+
+# Frontend
+Frontend/node_modules/
+Frontend/dist/
+Frontend/dist-ssr/
+Frontend/.env
+Frontend/.env.local
+Frontend/.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+.fleet/
+.nova/
+.zed/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Docker volumes
+postgres_data/
+redis_data/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+
+# Cache
+.cache/
+*.cache

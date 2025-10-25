@@ -1,0 +1,116 @@
+version: '3.8'
+
+services:
+  # Nginx - Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: academic_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./Backend:/var/www/html
+      - ./Frontend/dist:/var/www/frontend
+    environment:
+      - TZ=America/Lima
+    depends_on:
+      - app
+    networks:
+      - academic_network
+    restart: unless-stopped
+
+  # Laravel Application (PHP-FPM)
+  app:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: academic_app
+    working_dir: /var/www/html
+    volumes:
+      - ./Backend:/var/www/html
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TZ=America/Lima
+    depends_on:
+      - postgres
+      - redis
+      - pgbouncer
+    networks:
+      - academic_network
+    restart: unless-stopped
+
+  # PostgreSQL - Single container with TWO databases (OLTP + OLAP)
+  postgres:
+    image: postgres:16-alpine
+    container_name: academic_postgres
+    environment:
+      - POSTGRES_USER=academic
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+      - TZ=America/Lima
+      - PGTZ=America/Lima
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./Database/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
+      - ./Database/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    ports:
+      - "5432:5432"
+    command: >
+      postgres -c config_file=/etc/postgresql/postgresql.conf
+    shm_size: 256mb
+    networks:
+      - academic_network
+    restart: unless-stopped
+
+  # PgBouncer - Connection Pooler (connects to single postgres with multiple databases)
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: academic_pgbouncer
+    environment:
+      - DATABASES_HOST=postgres
+      - DATABASES_PORT=5432
+      - DATABASES_USER=academic
+      - DATABASES_PASSWORD=${DB_PASSWORD}
+      - DATABASES_DBNAME=academic_oltp
+      - POOL_MODE=transaction
+      - MAX_CLIENT_CONN=100
+      - DEFAULT_POOL_SIZE=50
+      - MIN_POOL_SIZE=10
+      - RESERVE_POOL_SIZE=5
+      - SERVER_IDLE_TIMEOUT=600
+      - TZ=America/Lima
+    ports:
+      - "6432:6432"
+    volumes:
+      - ./Database/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini
+    depends_on:
+      - postgres
+    networks:
+      - academic_network
+    restart: unless-stopped
+  # Redis - Cache, Queue, Session
+  redis:
+    image: redis:7-alpine
+    container_name: academic_redis
+    command: redis-server --appendonly yes --maxmemory 500mb --maxmemory-policy allkeys-lru
+    environment:
+      - TZ=America/Lima
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - academic_network
+    restart: unless-stopped
+
+networks:
+  academic_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
