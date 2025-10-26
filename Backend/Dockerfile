@@ -35,6 +35,9 @@ RUN docker-php-ext-install \
 # Install Redis extension
 RUN pecl install redis && docker-php-ext-enable redis
 
+# Install OPcache for performance
+RUN docker-php-ext-install opcache
+
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
@@ -48,6 +51,29 @@ COPY composer.* ./
 RUN if [ -f "composer.json" ]; then \
     composer install --no-dev --optimize-autoloader --no-interaction --no-scripts; \
     fi
+
+# PHP-FPM Configuration for performance
+RUN echo 'pm = dynamic' > /usr/local/etc/php-fpm.d/performance.conf && \
+    echo 'pm.max_children = 20' >> /usr/local/etc/php-fpm.d/performance.conf && \
+    echo 'pm.start_servers = 5' >> /usr/local/etc/php-fpm.d/performance.conf && \
+    echo 'pm.min_spare_servers = 3' >> /usr/local/etc/php-fpm.d/performance.conf && \
+    echo 'pm.max_spare_servers = 10' >> /usr/local/etc/php-fpm.d/performance.conf && \
+    echo 'pm.process_idle_timeout = 10s' >> /usr/local/etc/php-fpm.d/performance.conf && \
+    echo 'pm.max_requests = 500' >> /usr/local/etc/php-fpm.d/performance.conf && \
+    echo 'request_terminate_timeout = 60s' >> /usr/local/etc/php-fpm.d/performance.conf
+
+# OPcache Configuration
+RUN echo 'opcache.enable=1' > /usr/local/etc/php/conf.d/opcache.ini && \
+    echo 'opcache.enable_cli=1' >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo 'opcache.memory_consumption=256' >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo 'opcache.interned_strings_buffer=16' >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo 'opcache.max_accelerated_files=20000' >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo 'opcache.use_cwd=0' >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo 'opcache.validate_timestamps=0' >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo 'opcache.revalidate_freq=0' >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo 'opcache.fast_shutdown=1' >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo 'opcache.jit=1205' >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo 'opcache.jit_buffer_size=100M' >> /usr/local/etc/php/conf.d/opcache.ini
 
 # Copy application files
 COPY . .

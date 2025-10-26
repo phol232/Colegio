@@ -77,6 +77,16 @@ export const Layout = ({ children }: LayoutProps) => {
             roles: ['padre']
         },
         {
+            name: 'Grados y Secciones',
+            path: '/admin/grados',
+            icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M4 10h16v9a1 1 0 01-1 1H5a1 1 0 01-1-1v-9zm3-7h2a1 1 0 011 1v3H6V4a1 1 0 011-1zm8 0h2a1 1 0 011 1v3h-4V4a1 1 0 011-1z" />
+                </svg>
+            ),
+            roles: ['admin']
+        },
+        {
             name: 'Catálogo Cursos',
             path: '/admin/catalogo',
             icon: (

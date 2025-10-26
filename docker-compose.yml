@@ -19,7 +19,6 @@ services:
     networks:
       - academic_network
     restart: unless-stopped
-
   # Laravel Application (PHP-FPM)
   app:
     build:
@@ -28,11 +27,18 @@ services:
     container_name: academic_app
     working_dir: /var/www/html
     volumes:
-      - ./Backend:/var/www/html
+      - ./Backend:/var/www/html:cached
+      - app_cache:/var/www/html/bootstrap/cache
+      - app_storage:/var/www/html/storage
+      - app_vendor:/var/www/html/vendor
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - TZ=America/Lima
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - OPCACHE_ENABLE=1
+      - OPCACHE_JIT=1205
     depends_on:
       - postgres
       - redis
@@ -113,4 +119,10 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  app_cache:
+    driver: local
+  app_storage:
+    driver: local
+  app_vendor:
     driver: local
