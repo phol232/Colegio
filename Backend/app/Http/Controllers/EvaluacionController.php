@@ -11,22 +11,22 @@ use Illuminate\Support\Facades\Validator;
 class EvaluacionController extends Controller
 {
     /**
-     * Crear una nueva evaluación
+     * Crear una nueva evaluación por mes
      * POST /api/evaluaciones
      */
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'curso_id' => 'required|exists:cursos,id',
-            'unidad' => 'required|integer|between:1,4',
+            'mes' => 'required|integer|between:3,12',
             'nombre' => 'required|string|min:3|max:100',
             'tipo_evaluacion' => 'required|string|max:50',
             'peso' => 'nullable|numeric|between:0,100|regex:/^\d+(\.\d{1,2})?$/'
         ], [
             'curso_id.required' => 'El curso es requerido',
             'curso_id.exists' => 'El curso no existe',
-            'unidad.required' => 'La unidad es requerida',
-            'unidad.between' => 'La unidad debe estar entre 1 y 4',
+            'mes.required' => 'El mes es requerido',
+            'mes.between' => 'El mes debe estar entre 3 (marzo) y 12 (diciembre)',
             'nombre.required' => 'El nombre de la evaluación es requerido',
             'nombre.min' => 'El nombre debe tener al menos 3 caracteres',
             'nombre.max' => 'El nombre no puede exceder 100 caracteres',
@@ -53,22 +53,32 @@ class EvaluacionController extends Controller
                 ], 422);
             }
 
-            // Usar la función de base de datos
-            $result = DB::selectOne(
-                'SELECT crear_evaluacion(?, ?, ?, ?, ?) as result',
-                [
-                    $request->curso_id,
-                    $request->unidad,
-                    $nombre,
-                    $request->tipo_evaluacion,
-                    $request->peso
-                ]
-            );
+            // Obtener el siguiente orden para este curso y mes
+            $siguienteOrden = Evaluacion::where('curso_id', $request->curso_id)
+                ->where('mes', $request->mes)
+                ->max('orden') + 1;
 
-            $resultado = json_decode($result->result, true);
+            // Crear la evaluación
+            $evaluacion = Evaluacion::create([
+                'curso_id' => $request->curso_id,
+                'mes' => $request->mes,
+                'nombre' => $nombre,
+                'tipo_evaluacion' => $request->tipo_evaluacion,
+                'peso' => $request->peso,
+                'orden' => $siguienteOrden
+            ]);
 
-            $statusCode = $resultado['success'] ? 201 : 400;
-            return response()->json($resultado, $statusCode);
+            // Cargar la relación con el curso
+            $evaluacion->load('curso');
+
+            // Agregar el conteo de notas
+            $evaluacion->total_notas = $evaluacion->notasDetalle()->count();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Evaluación creada exitosamente',
+                'data' => $evaluacion
+            ], 201);
 
         } catch (\Exception $e) {
             \Log::error('Error al crear evaluación: ' . $e->getMessage());
@@ -80,20 +90,27 @@ class EvaluacionController extends Controller
     }
 
     /**
-     * Obtener evaluaciones de un curso y unidad
-     * GET /api/evaluaciones/curso/{cursoId}/unidad/{unidad}
+     * Obtener evaluaciones de un curso y mes
+     * GET /api/evaluaciones/curso/{cursoId}/mes/{mes}
      */
-    public function getByCursoUnidad($cursoId, $unidad): JsonResponse
+    public function getByCursoMes($cursoId, $mes): JsonResponse
     {
         try {
-            // Usar la función de base de datos
-            $result = DB::selectOne(
-                'SELECT obtener_evaluaciones_curso_unidad(?, ?) as result',
-                [$cursoId, $unidad]
-            );
+            $evaluaciones = Evaluacion::where('curso_id', $cursoId)
+                ->where('mes', $mes)
+                ->with(['curso'])
+                ->orderBy('orden')
+                ->get();
 
-            $resultado = json_decode($result->result, true);
-            return response()->json($resultado);
+            // Agregar el conteo de notas para cada evaluación
+            $evaluaciones->each(function ($evaluacion) {
+                $evaluacion->total_notas = $evaluacion->notasDetalle()->count();
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $evaluaciones
+            ]);
 
         } catch (\Exception $e) {
             return response()->json([
@@ -102,6 +119,8 @@ class EvaluacionController extends Controller
             ], 500);
         }
     }
+
+
 
     /**
      * Actualizar una evaluación
@@ -228,7 +247,7 @@ class EvaluacionController extends Controller
         try {
             $evaluaciones = Evaluacion::where('curso_id', $cursoId)
                 ->with(['notasDetalle'])
-                ->orderBy('unidad')
+                ->orderBy('mes')
                 ->orderBy('orden')
                 ->get();
 

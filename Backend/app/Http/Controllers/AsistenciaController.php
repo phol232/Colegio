@@ -6,6 +6,7 @@ use App\Services\AsistenciaService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 class AsistenciaController extends Controller
 {
@@ -147,6 +148,60 @@ class AsistenciaController extends Controller
     }
 
     /**
+     * Obtiene el resumen de asistencias de un curso
+     * GET /api/asistencias/curso/{cursoId}/resumen
+     */
+    public function resumenCurso(int $cursoId): JsonResponse
+    {
+        try {
+            // Obtener todas las asistencias del curso
+            $asistencias = \App\Models\Asistencia::where('curso_id', $cursoId)->get();
+            
+            if ($asistencias->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'total_clases' => 0,
+                        'porcentaje_asistencia' => 0,
+                        'total_presentes' => 0,
+                        'total_ausentes' => 0,
+                        'total_tardanzas' => 0
+                    ]
+                ]);
+            }
+
+            // Calcular estadísticas
+            $totalClases = $asistencias->unique('fecha')->count();
+            $totalPresentes = $asistencias->where('estado', 'presente')->count();
+            $totalAusentes = $asistencias->where('estado', 'ausente')->count();
+            $totalTardanzas = $asistencias->where('estado', 'tardanza')->count();
+            
+            $totalRegistros = $asistencias->count();
+            $porcentajeAsistencia = $totalRegistros > 0 
+                ? round(($totalPresentes + $totalTardanzas) / $totalRegistros * 100, 2) 
+                : 0;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_clases' => $totalClases,
+                    'porcentaje_asistencia' => $porcentajeAsistencia,
+                    'total_presentes' => $totalPresentes,
+                    'total_ausentes' => $totalAusentes,
+                    'total_tardanzas' => $totalTardanzas
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error al obtener resumen de asistencias del curso: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener resumen de asistencias: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Obtiene las asistencias de un curso en una fecha específica
      * GET /api/asistencias/curso/{cursoId}/fecha/{fecha}
      */
@@ -159,9 +214,40 @@ class AsistenciaController extends Controller
 
     /**
      * Obtiene las asistencias del estudiante autenticado
-     * GET /api/asistencias/estudiante
+     * GET /api/asistencias/estudiante?fecha=2025-10-30
      */
     public function misAsistencias(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->attributes->get('user');
+            $estudianteId = $user->usuario_id ?? $user->id;
+            
+            // Obtener fecha del query string (opcional)
+            $fecha = $request->query('fecha');
+
+            // Usar la función de PostgreSQL con filtro de fecha
+            if ($fecha) {
+                $asistencias = DB::select('SELECT * FROM get_asistencias_estudiante_fecha(?, ?::date)', [$estudianteId, $fecha]);
+            } else {
+                $asistencias = DB::select('SELECT * FROM get_asistencias_estudiante(?)', [$estudianteId]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $asistencias
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error al obtener asistencias del estudiante: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener asistencias'
+            ], 500);
+        }
+    }
+
+    // Método viejo comentado para referencia
+    private function misAsistenciasOld(Request $request): JsonResponse
     {
         $user = $request->attributes->get('user');
         $estudianteId = $user->usuario_id ?? $user->id;

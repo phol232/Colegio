@@ -4,7 +4,7 @@ import api from '../services/api';
 interface Evaluacion {
     id: number;
     curso_id: number;
-    unidad: number;
+    mes: number;
     nombre: string;
     tipo_evaluacion: string;
     peso: number | null;
@@ -14,7 +14,7 @@ interface Evaluacion {
 
 interface EvaluacionManagerProps {
     cursoId: number;
-    unidad: number;
+    mes: number;
     evaluaciones: Evaluacion[];
     onEvaluacionCreated: (evaluacion: Evaluacion) => void;
     onEvaluacionUpdated: (evaluacion: Evaluacion) => void;
@@ -30,9 +30,22 @@ const TIPOS_EVALUACION = [
     'Otro'
 ];
 
+const MESES = {
+    3: 'Marzo',
+    4: 'Abril',
+    5: 'Mayo',
+    6: 'Junio',
+    7: 'Julio',
+    8: 'Agosto',
+    9: 'Septiembre',
+    10: 'Octubre',
+    11: 'Noviembre',
+    12: 'Diciembre'
+};
+
 export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
     cursoId,
-    unidad,
+    mes,
     evaluaciones,
     onEvaluacionCreated,
     onEvaluacionUpdated,
@@ -42,7 +55,7 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
     const [mostrarFormulario, setMostrarFormulario] = useState(false);
     const [editando, setEditando] = useState<number | null>(null);
     const [guardando, setGuardando] = useState(false);
-    
+
     const [formData, setFormData] = useState({
         nombre: '',
         tipo_evaluacion: 'Práctica',
@@ -56,83 +69,87 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
         return 100 - pesoUsado;
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        
-        // Validar nombre
+    const validarFormulario = () => {
         if (!formData.nombre.trim()) {
             alert('El nombre de la evaluación es requerido');
-            return;
+            return false;
         }
-        
+
         if (formData.nombre.trim().length < 3) {
             alert('El nombre debe tener al menos 3 caracteres');
-            return;
+            return false;
         }
-        
+
+        return true;
+    };
+
+    const validarPeso = (peso: number | null) => {
+        if (peso === null) return true;
+
+        if (peso < 0 || peso > 100) {
+            alert('El peso debe estar entre 0 y 100%');
+            return false;
+        }
+
+        const pesoDisponible = calcularPesoDisponible();
+        if (peso > pesoDisponible) {
+            alert(`El peso no puede exceder ${pesoDisponible}%. Peso disponible: ${pesoDisponible}%`);
+            return false;
+        }
+
+        const pesoTotal = evaluaciones
+            .filter(e => e.id !== editando && e.peso !== null)
+            .reduce((sum, e) => sum + (e.peso || 0), 0) + peso;
+
+        if (pesoTotal > 100) {
+            alert(`La suma de pesos no puede exceder 100%. Total actual: ${pesoTotal}%`);
+            return false;
+        }
+
+        return true;
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!validarFormulario()) return;
+
         const peso = formData.peso ? parseFloat(formData.peso) : null;
-        
-        // Validar peso
-        if (peso !== null) {
-            if (peso < 0 || peso > 100) {
-                alert('El peso debe estar entre 0 y 100%');
-                return;
-            }
-            
-            const pesoDisponible = calcularPesoDisponible();
-            if (peso > pesoDisponible) {
-                alert(`El peso no puede exceder ${pesoDisponible}%. Peso disponible: ${pesoDisponible}%`);
-                return;
-            }
-            
-            // Validar que el peso total no exceda 100%
-            const pesoTotal = evaluaciones
-                .filter(e => e.id !== editando && e.peso !== null)
-                .reduce((sum, e) => sum + (e.peso || 0), 0) + peso;
-                
-            if (pesoTotal > 100) {
-                alert(`La suma de pesos no puede exceder 100%. Total actual: ${pesoTotal}%`);
-                return;
-            }
-        }
+        if (!validarPeso(peso)) return;
 
         setGuardando(true);
         try {
+            const payload = {
+                nombre: formData.nombre.trim(),
+                tipo_evaluacion: formData.tipo_evaluacion,
+                peso
+            };
+
+            let response;
             if (editando) {
-                // Actualizar
-                const response = await api.put(`/evaluaciones/${editando}`, {
-                    nombre: formData.nombre.trim(),
-                    tipo_evaluacion: formData.tipo_evaluacion,
-                    peso
-                });
-                
-                if (response.data.success) {
-                    onEvaluacionUpdated(response.data.data);
-                    resetForm();
-                } else {
-                    alert(response.data.message || 'Error al actualizar evaluación');
-                }
+                response = await api.put(`/evaluaciones/${editando}`, payload);
             } else {
-                // Crear
-                const response = await api.post('/evaluaciones', {
+                response = await api.post('/evaluaciones', {
+                    ...payload,
                     curso_id: cursoId,
-                    unidad,
-                    nombre: formData.nombre.trim(),
-                    tipo_evaluacion: formData.tipo_evaluacion,
-                    peso
+                    mes
                 });
-                
-                if (response.data.success) {
-                    onEvaluacionCreated(response.data.data);
-                    resetForm();
+            }
+
+            if (response.data.success) {
+                if (editando) {
+                    onEvaluacionUpdated(response.data.data);
                 } else {
-                    alert(response.data.message || 'Error al crear evaluación');
+                    onEvaluacionCreated(response.data.data);
                 }
+                resetForm();
+            } else {
+                alert(response.data.message || 'Error al guardar evaluación');
             }
         } catch (error: any) {
-            const errorMessage = error.response?.data?.message || 
-                                error.response?.data?.errors?.peso?.[0] ||
-                                'Error al guardar evaluación';
+            const errorMessage = error.response?.data?.message ||
+                error.response?.data?.errors?.peso?.[0] ||
+                'Error al guardar evaluación';
             alert(errorMessage);
         } finally {
             setGuardando(false);
@@ -150,29 +167,20 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
     };
 
     const handleEliminar = async (evaluacion: Evaluacion) => {
-        // Confirmación para evaluaciones con notas
-        if (evaluacion.total_notas > 0) {
-            const confirmacion = confirm(
-                `⚠️ ADVERTENCIA: Esta evaluación tiene ${evaluacion.total_notas} nota(s) registrada(s).\n\n` +
-                `Al eliminar "${evaluacion.nombre}", se eliminarán TODAS las notas asociadas y se recalcularán los promedios.\n\n` +
-                `¿Estás seguro de que deseas continuar?`
-            );
-            
-            if (!confirmacion) {
-                return;
-            }
-        } else {
-            // Confirmación simple para evaluaciones sin notas
-            if (!confirm(`¿Eliminar la evaluación "${evaluacion.nombre}"?`)) {
-                return;
-            }
-        }
+        const tieneNotas = evaluacion.total_notas > 0;
+        const mensaje = tieneNotas 
+            ? `⚠️ ADVERTENCIA: Esta evaluación tiene ${evaluacion.total_notas} nota(s) registrada(s).\n\n` +
+              `Al eliminar "${evaluacion.nombre}", se eliminarán TODAS las notas asociadas y se recalcularán los promedios.\n\n` +
+              `¿Estás seguro de que deseas continuar?`
+            : `¿Eliminar la evaluación "${evaluacion.nombre}"?`;
+
+        if (!confirm(mensaje)) return;
 
         try {
             const response = await api.delete(`/evaluaciones/${evaluacion.id}`, {
-                params: { forzar: evaluacion.total_notas > 0 }
+                params: { forzar: tieneNotas }
             });
-            
+
             if (response.data.success) {
                 onEvaluacionDeleted(evaluacion.id);
             } else {
@@ -192,6 +200,7 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
 
     const pesoDisponible = calcularPesoDisponible();
     const pesoTotal = evaluaciones.reduce((sum, e) => sum + (e.peso || 0), 0);
+    const nombreMes = MESES[mes as keyof typeof MESES] || `Mes ${mes}`;
 
     return (
         <>
@@ -208,7 +217,6 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
                     </button>
                 </div>
 
-                {/* Resumen de evaluaciones */}
                 {evaluaciones.length > 0 ? (
                     <div className="flex items-center gap-2 text-xs text-[#6B7280]">
                         <span>{evaluaciones.length} evaluación(es)</span>
@@ -223,17 +231,15 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
                 )}
             </div>
 
-            {/* Modal de Gestión de Evaluaciones */}
             {modalAbierto && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
                     <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] flex flex-col">
-                        {/* Header del Modal */}
                         <div className="px-6 py-4 border-b border-[#E5E7EB] bg-[#F5F7FA]">
                             <div className="flex justify-between items-center">
                                 <div>
                                     <h2 className="text-lg font-bold text-[#0E2B5C]">Gestión de Evaluaciones</h2>
                                     <p className="text-xs text-[#6B7280] mt-1">
-                                        Unidad {unidad} - {evaluaciones.length} evaluación(es)
+                                        {nombreMes} - {evaluaciones.length} evaluación(es)
                                     </p>
                                 </div>
                                 <button
@@ -250,9 +256,7 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
                             </div>
                         </div>
 
-                        {/* Contenido del Modal */}
                         <div className="flex-1 overflow-y-auto px-6 py-4">
-                            {/* Formulario de Nueva/Editar Evaluación */}
                             {!mostrarFormulario ? (
                                 <button
                                     onClick={() => setMostrarFormulario(true)}
@@ -312,7 +316,7 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
                                             />
                                         </div>
                                     </div>
-                                    
+
                                     {formData.peso && (
                                         <p className="text-xs text-[#6B7280] mb-3">
                                             💡 Peso disponible: {pesoDisponible}%
@@ -338,7 +342,6 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
                                 </form>
                             )}
 
-                            {/* Tabla de Evaluaciones */}
                             {evaluaciones.length > 0 ? (
                                 <div className="overflow-x-auto">
                                     <table className="min-w-full divide-y divide-[#E5E7EB] border border-[#E5E7EB] rounded-lg">
@@ -398,7 +401,7 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
                                             ))}
                                         </tbody>
                                     </table>
-                                    
+
                                     {pesoTotal > 0 && (
                                         <div className="mt-3 bg-[#EFF6FF] border border-[#17A2E5] rounded-lg p-3 text-sm">
                                             <span className="text-[#0E2B5C] font-medium">
@@ -418,7 +421,6 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
                             )}
                         </div>
 
-                        {/* Footer del Modal */}
                         <div className="px-6 py-4 border-t border-[#E5E7EB] bg-[#F5F7FA]">
                             <button
                                 onClick={() => {

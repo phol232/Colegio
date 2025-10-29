@@ -256,49 +256,70 @@ class NotaController extends Controller
      * Obtiene las notas del estudiante autenticado (LEGACY)
      * GET /api/notas/estudiante
      */
+    /**
+     * Obtiene las notas del estudiante autenticado (resumen)
+     * GET /api/notas/estudiante
+     */
     public function misNotas(Request $request): JsonResponse
     {
-        $user = $request->attributes->get('user');
-        $estudianteId = $user->usuario_id ?? $user->id;
+        try {
+            $user = $request->attributes->get('user');
+            $estudianteId = $user->usuario_id ?? $user->id;
 
-        // Obtener filtros opcionales
-        $cursoId = $request->get('curso_id');
-        $unidad = $request->get('unidad');
+            // Usar la función de PostgreSQL
+            $notas = DB::select('SELECT * FROM get_notas_estudiante(?)', [$estudianteId]);
 
-        // Obtener promedios del estudiante
-        $query = PromedioUnidad::where('estudiante_id', $estudianteId)
-            ->with(['curso:id,nombre,codigo']);
+            return response()->json([
+                'success' => true,
+                'data' => $notas
+            ]);
 
-        if ($cursoId) {
-            $query->where('curso_id', $cursoId);
+        } catch (\Exception $e) {
+            \Log::error('Error al obtener notas del estudiante: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener notas'
+            ], 500);
         }
-
-        if ($unidad) {
-            $query->where('unidad', $unidad);
-        }
-
-        $promedios = $query->orderBy('curso_id')->orderBy('unidad')->get();
-
-        // Transformar para mantener compatibilidad
-        $data = $promedios->map(function($promedio) {
-            return [
-                'id' => $promedio->id,
-                'estudiante_id' => $promedio->estudiante_id,
-                'curso_id' => $promedio->curso_id,
-                'curso_nombre' => $promedio->curso->nombre,
-                'curso_codigo' => $promedio->curso->codigo,
-                'unidad' => $promedio->unidad,
-                'puntaje' => $promedio->promedio_numerico,
-                'puntaje_literal' => $promedio->promedio_literal,
-                'total_evaluaciones' => $promedio->total_evaluaciones,
-                'created_at' => $promedio->created_at,
-                'updated_at' => $promedio->updated_at
-            ];
-        });
-
-        return response()->json([
-            'success' => true,
-            'data' => $data
-        ]);
     }
+
+    /**
+     * Obtiene las notas detalladas con evaluaciones del estudiante
+     * GET /api/notas/estudiante/detalladas
+     */
+    public function misNotasDetalladas(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->attributes->get('user');
+            $estudianteId = $user->usuario_id ?? $user->id;
+
+            // Usar la función de PostgreSQL que incluye evaluaciones
+            $notasDetalladas = DB::select('SELECT * FROM get_notas_detalladas_estudiante(?)', [$estudianteId]);
+
+            // Decodificar el JSON de evaluaciones
+            $data = array_map(function($nota) {
+                return [
+                    'curso_id' => $nota->curso_id,
+                    'curso_nombre' => $nota->curso_nombre,
+                    'curso_codigo' => $nota->curso_codigo,
+                    'promedio_numerico' => (float) $nota->promedio_numerico,
+                    'promedio_literal' => $nota->promedio_literal,
+                    'evaluaciones' => json_decode($nota->evaluaciones, true)
+                ];
+            }, $notasDetalladas);
+
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error al obtener notas detalladas del estudiante: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener notas detalladas'
+            ], 500);
+        }
+    }
+
 }

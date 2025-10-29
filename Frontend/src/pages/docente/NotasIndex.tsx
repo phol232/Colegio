@@ -4,6 +4,64 @@ import { Layout } from '../../components/Layout';
 import { getCourseColor } from '../../utils/courseColors';
 import api from '../../services/api';
 
+interface MesSelectorProps {
+    cursoId: number;
+    onMesSeleccionado: (cursoId: number, mes: number) => void;
+}
+
+const MesSelector: React.FC<MesSelectorProps> = ({ cursoId, onMesSeleccionado }) => {
+    const [mesSeleccionado, setMesSeleccionado] = useState<string>('');
+
+    const meses = [
+        { valor: '3', nombre: 'Marzo' },
+        { valor: '4', nombre: 'Abril' },
+        { valor: '5', nombre: 'Mayo' },
+        { valor: '6', nombre: 'Junio' },
+        { valor: '7', nombre: 'Julio' },
+        { valor: '8', nombre: 'Agosto' },
+        { valor: '9', nombre: 'Septiembre' },
+        { valor: '10', nombre: 'Octubre' },
+        { valor: '11', nombre: 'Noviembre' },
+        { valor: '12', nombre: 'Diciembre' }
+    ];
+
+    const handleMesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setMesSeleccionado(e.target.value);
+    };
+
+    const handleNotasClick = () => {
+        if (mesSeleccionado) {
+            onMesSeleccionado(cursoId, parseInt(mesSeleccionado));
+        } else {
+            alert('Por favor selecciona un mes');
+        }
+    };
+
+    return (
+        <div className="space-y-2">
+            <p className="text-xs font-medium text-[#6B7280]">Seleccionar mes:</p>
+            <select 
+                className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg focus:ring-2 focus:ring-[#C62828] text-xs"
+                value={mesSeleccionado}
+                onChange={handleMesChange}
+            >
+                <option value="">Selecciona un mes</option>
+                {meses.map(mes => (
+                    <option key={mes.valor} value={mes.valor}>{mes.nombre}</option>
+                ))}
+            </select>
+            {mesSeleccionado && (
+                <button
+                    onClick={handleNotasClick}
+                    className="w-full px-3 py-2 bg-[#C62828] hover:bg-[#B71C1C] text-white rounded-lg transition-colors font-semibold text-xs"
+                >
+                    Notas
+                </button>
+            )}
+        </div>
+    );
+};
+
 interface Curso {
     id: number;
     nombre: string;
@@ -12,9 +70,7 @@ interface Curso {
     seccion: string;
 }
 
-
-
-export const RegistroNotas = () => {
+export const NotasIndex = () => {
     const navigate = useNavigate();
     const [cursos, setCursos] = useState<Curso[]>([]);
     const [loading, setLoading] = useState(true);
@@ -36,8 +92,8 @@ export const RegistroNotas = () => {
         }
     };
 
-    const abrirRegistroUnidad = (cursoId: number, unidad: number) => {
-        navigate(`/docente/notas/curso/${cursoId}/unidad/${unidad}`);
+    const abrirRegistroMes = (cursoId: number, mes: number) => {
+        navigate(`/docente/notas/curso/${cursoId}/mes/${mes}`);
     };
 
     if (loading) {
@@ -53,13 +109,11 @@ export const RegistroNotas = () => {
     return (
         <Layout>
             <div className="p-6 bg-[#F4F6F8] min-h-screen">
-                {/* Header */}
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-[#1E1E1E]">Registro de Notas</h1>
                     <p className="text-sm text-[#7A7A7A]">Selecciona un curso para registrar las calificaciones</p>
                 </div>
 
-                {/* Buscador y Filtros */}
                 <div className="mb-4 bg-white rounded-lg shadow border border-[#E5E7EB] p-4">
                     <div className="flex items-center space-x-4">
                         <div className="flex-1 relative">
@@ -92,7 +146,6 @@ export const RegistroNotas = () => {
                     </div>
                 </div>
 
-                {/* Tarjetas de Cursos */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {cursos
                         .filter(curso => {
@@ -140,27 +193,12 @@ export const RegistroNotas = () => {
                                             </div>
                                         </div>
 
-                                        <div className="space-y-2">
-                                            <p className="text-xs font-medium text-[#6B7280]">Registrar notas por unidad:</p>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {[1, 2, 3, 4].map((unidad) => (
-                                                    <button
-                                                        key={unidad}
-                                                        onClick={() => abrirRegistroUnidad(curso.id, unidad)}
-                                                        className="px-3 py-2 bg-[#C62828] hover:bg-[#B71C1C] text-white rounded-lg transition-colors font-semibold text-xs"
-                                                    >
-                                                        Unidad {unidad}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        <MesSelector cursoId={curso.id} onMesSeleccionado={abrirRegistroMes} />
                                     </div>
                                 </div>
                             );
                         })}
                 </div>
-
-
             </div>
         </Layout>
     );

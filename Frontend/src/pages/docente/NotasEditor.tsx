@@ -24,7 +24,7 @@ interface Estudiante {
 interface Evaluacion {
     id: number;
     curso_id: number;
-    unidad: number;
+    mes: number;
     nombre: string;
     tipo_evaluacion: string;
     peso: number | null;
@@ -45,8 +45,21 @@ interface Promedio {
     total_evaluaciones: number;
 }
 
-export const RegistroNotasUnidad = () => {
-    const { cursoId, unidad } = useParams<{ cursoId: string; unidad: string }>();
+const MESES = {
+    3: 'Marzo',
+    4: 'Abril',
+    5: 'Mayo',
+    6: 'Junio',
+    7: 'Julio',
+    8: 'Agosto',
+    9: 'Septiembre',
+    10: 'Octubre',
+    11: 'Noviembre',
+    12: 'Diciembre'
+};
+
+export const NotasEditor = () => {
+    const { cursoId, mes } = useParams<{ cursoId: string; mes: string }>();
     const navigate = useNavigate();
 
     const [curso, setCurso] = useState<Curso | null>(null);
@@ -63,17 +76,16 @@ export const RegistroNotasUnidad = () => {
 
     useEffect(() => {
         cargarDatos();
-    }, [cursoId, unidad]);
+    }, [cursoId, mes]);
 
     const cargarDatos = async () => {
-        if (!cursoId || !unidad) return;
+        if (!cursoId || !mes) return;
 
         setLoading(true);
         setCargandoDatos(true);
         setError(null);
 
         try {
-            // Cargar todos los cursos del docente para obtener la info del curso
             const respCursos = await api.get('/docente/cursos');
             const cursoEncontrado = respCursos.data.data?.find((c: Curso) => c.id === parseInt(cursoId));
             
@@ -83,17 +95,12 @@ export const RegistroNotasUnidad = () => {
             
             setCurso(cursoEncontrado);
 
-            // Cargar estudiantes
             const respEstudiantes = await api.get(`/cursos/${cursoId}/estudiantes`);
             setEstudiantes(respEstudiantes.data.data || []);
 
-            // Cargar evaluaciones
-            const respEvaluaciones = await api.get(
-                `/evaluaciones/curso/${cursoId}/unidad/${unidad}`
-            );
+            const respEvaluaciones = await api.get(`/evaluaciones/curso/${cursoId}/mes/${mes}`);
             setEvaluaciones(respEvaluaciones.data.data || []);
 
-            // Cargar notas de todas las evaluaciones
             const notasMap = new Map<string, number>();
 
             for (const evaluacion of respEvaluaciones.data.data || []) {
@@ -107,10 +114,9 @@ export const RegistroNotasUnidad = () => {
             }
 
             setNotas(notasMap);
-            setNotasOriginales(new Map(notasMap)); // Guardar copia de las notas originales
-            setNotasModificadas(new Set()); // Limpiar modificaciones
+            setNotasOriginales(new Map(notasMap));
+            setNotasModificadas(new Set());
 
-            // Calcular promedios en tiempo real
             calcularPromediosLocales(respEvaluaciones.data.data || [], notasMap, respEstudiantes.data.data || []);
 
         } catch (error: any) {
@@ -155,7 +161,6 @@ export const RegistroNotasUnidad = () => {
             nuevasNotas.set(key, puntaje);
         }
 
-        // Marcar como modificada si es diferente a la original
         const notaOriginal = notasOriginales.get(key);
         if (puntaje !== notaOriginal) {
             nuevasModificadas.add(key);
@@ -169,17 +174,11 @@ export const RegistroNotasUnidad = () => {
     };
 
     const guardarNotas = async () => {
-        if (!curso) {
-            alert('Error: No hay curso seleccionado');
+        if (!curso || notasModificadas.size === 0) {
+            alert(notasModificadas.size === 0 ? 'No hay cambios para guardar.' : 'Error: No hay curso seleccionado');
             return;
         }
 
-        if (notasModificadas.size === 0) {
-            alert('No hay cambios para guardar.');
-            return;
-        }
-
-        // Preparar solo las notas modificadas
         const notasArray: Array<{ evaluacion_id: number; estudiante_id: number; puntaje: number }> = [];
         
         notasModificadas.forEach(key => {
@@ -187,7 +186,6 @@ export const RegistroNotasUnidad = () => {
             if (puntaje !== undefined) {
                 const [estudiante_id, evaluacion_id] = key.split('-').map(Number);
                 
-                // Validar rango
                 if (puntaje < 0 || puntaje > 20) {
                     alert(`Nota inválida: ${puntaje} (debe estar entre 0 y 20)`);
                     return;
@@ -210,14 +208,13 @@ export const RegistroNotasUnidad = () => {
 
             if (response.data.success) {
                 alert(`✓ Notas guardadas exitosamente\n\nRegistradas: ${notasArray.length}`);
-                // Actualizar las notas originales con las nuevas
                 const nuevasOriginales = new Map(notasOriginales);
                 notasArray.forEach(nota => {
                     const key = `${nota.estudiante_id}-${nota.evaluacion_id}`;
                     nuevasOriginales.set(key, nota.puntaje);
                 });
                 setNotasOriginales(nuevasOriginales);
-                setNotasModificadas(new Set()); // Limpiar modificaciones
+                setNotasModificadas(new Set());
             } else {
                 alert(response.data.message || 'Error al guardar notas');
             }
@@ -243,7 +240,6 @@ export const RegistroNotasUnidad = () => {
     const handleEvaluacionDeleted = (evaluacionId: number) => {
         setEvaluaciones(evaluaciones.filter(e => e.id !== evaluacionId));
 
-        // Eliminar notas de esa evaluación
         const nuevasNotas = new Map(notas);
         Array.from(nuevasNotas.keys()).forEach(key => {
             if (key.endsWith(`-${evaluacionId}`)) {
@@ -283,11 +279,11 @@ export const RegistroNotasUnidad = () => {
     }
 
     const courseColor = getCourseColor(curso.nombre);
+    const nombreMes = MESES[parseInt(mes!) as keyof typeof MESES] || `Mes ${mes}`;
 
     return (
         <Layout>
             <div className="min-h-screen bg-[#F4F6F8]">
-                {/* Header */}
                 <div className="bg-white border-b border-[#E5E7EB] shadow-sm">
                     <div className="max-w-[1600px] mx-auto px-6 py-4">
                         <div className="flex items-center gap-4">
@@ -301,7 +297,7 @@ export const RegistroNotasUnidad = () => {
                             </button>
                             <div>
                                 <h1 className="text-2xl font-bold text-[#0E2B5C]">
-                                    {curso.nombre} - Unidad {unidad}
+                                    {curso.nombre} - {nombreMes}
                                 </h1>
                                 <p className="text-sm text-[#6B7280] mt-1">
                                     {curso.codigo} • {curso.grado} • Sección {curso.seccion}
@@ -311,7 +307,6 @@ export const RegistroNotasUnidad = () => {
                     </div>
                 </div>
 
-                {/* Info Banner */}
                 <div className="bg-[#EFF6FF] border-b border-[#17A2E5]">
                     <div className="max-w-[1600px] mx-auto px-6 py-3">
                         <p className="text-sm text-[#0E2B5C]">
@@ -320,13 +315,11 @@ export const RegistroNotasUnidad = () => {
                     </div>
                 </div>
 
-                {/* Contenido Principal */}
                 <div className="max-w-[1600px] mx-auto px-6 py-6">
-                    {/* Gestión de Evaluaciones */}
                     <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6 mb-6">
                         <EvaluacionManager
                             cursoId={parseInt(cursoId!)}
-                            unidad={parseInt(unidad!)}
+                            mes={parseInt(mes!)}
                             evaluaciones={evaluaciones}
                             onEvaluacionCreated={handleEvaluacionCreated}
                             onEvaluacionUpdated={handleEvaluacionUpdated}
@@ -334,7 +327,6 @@ export const RegistroNotasUnidad = () => {
                         />
                     </div>
 
-                    {/* Tabla de Notas */}
                     <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6">
                         {cargandoDatos ? (
                             <div className="flex items-center justify-center py-12">
@@ -372,7 +364,6 @@ export const RegistroNotasUnidad = () => {
                         )}
                     </div>
 
-                    {/* Estadísticas */}
                     {promedios.size > 0 && (
                         <div className="mt-6 bg-white rounded-lg shadow border border-[#E5E7EB] p-6">
                             <h3 className="text-sm font-semibold text-[#0E2B5C] mb-4">Estadísticas</h3>

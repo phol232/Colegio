@@ -19,13 +19,13 @@ class PromedioController extends Controller
         try {
             // Intentar obtener del caché primero
             $cacheKey = "promedio_{$estudianteId}_{$cursoId}_{$unidad}";
-            
+
             $resultado = Cache::remember($cacheKey, 300, function() use ($estudianteId, $cursoId, $unidad) {
                 $result = DB::selectOne(
                     'SELECT obtener_promedio_estudiante(?, ?, ?) as result',
                     [$estudianteId, $cursoId, $unidad]
                 );
-                
+
                 return json_decode($result->result, true);
             });
 
@@ -87,11 +87,10 @@ class PromedioController extends Controller
             );
 
             $resultado = json_decode($result->result, true);
-            
-            // Agregar estadísticas adicionales
+
             if ($resultado['success'] && count($resultado['data']) > 0) {
                 $promedios = collect($resultado['data']);
-                
+
                 $resultado['estadisticas'] = [
                     'total_estudiantes' => $promedios->count(),
                     'promedio_general' => round($promedios->avg('promedio_numerico'), 2),
@@ -198,38 +197,65 @@ class PromedioController extends Controller
     public function getEstadisticasCurso($cursoId): JsonResponse
     {
         try {
-            $promedios = PromedioUnidad::where('curso_id', $cursoId)->get();
+            // Obtener todas las evaluaciones del curso
+            $evaluaciones = \App\Models\Evaluacion::where('curso_id', $cursoId)->get();
 
-            if ($promedios->isEmpty()) {
+            if ($evaluaciones->isEmpty()) {
                 return response()->json([
                     'success' => true,
                     'data' => [
                         'total_estudiantes' => 0,
                         'promedio_general' => 0,
-                        'por_unidad' => []
+                        'estudiantes_aprobados' => 0,
+                        'estudiantes_desaprobados' => 0,
+                        'total_evaluaciones' => 0
                     ]
                 ]);
             }
 
-            $estadisticasPorUnidad = $promedios->groupBy('unidad')->map(function($unidad) {
-                return [
-                    'promedio' => round($unidad->avg('promedio_numerico'), 2),
-                    'aprobados' => $unidad->where('promedio_numerico', '>=', 11)->count(),
-                    'desaprobados' => $unidad->where('promedio_numerico', '<', 11)->count(),
-                    'total' => $unidad->count()
-                ];
+            // Obtener todas las notas de esas evaluaciones
+            $evaluacionIds = $evaluaciones->pluck('id');
+            $notasDetalle = \App\Models\NotaDetalle::whereIn('evaluacion_id', $evaluacionIds)->get();
+
+            if ($notasDetalle->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'total_estudiantes' => 0,
+                        'promedio_general' => 0,
+                        'estudiantes_aprobados' => 0,
+                        'estudiantes_desaprobados' => 0,
+                        'total_evaluaciones' => $evaluaciones->count()
+                    ]
+                ]);
+            }
+
+            // Calcular promedio por estudiante
+            $promediosPorEstudiante = $notasDetalle->groupBy('estudiante_id')->map(function($notasEstudiante) {
+                return round($notasEstudiante->avg('puntaje'), 2);
             });
+
+            $promedioGeneral = round($promediosPorEstudiante->avg(), 2);
+            $estudiantesAprobados = $promediosPorEstudiante->filter(function($promedio) {
+                return $promedio >= 11;
+            })->count();
+            $estudiantesDesaprobados = $promediosPorEstudiante->filter(function($promedio) {
+                return $promedio < 11;
+            })->count();
 
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'total_estudiantes' => $promedios->unique('estudiante_id')->count(),
-                    'promedio_general' => round($promedios->avg('promedio_numerico'), 2),
-                    'por_unidad' => $estadisticasPorUnidad
+                    'total_estudiantes' => $promediosPorEstudiante->count(),
+                    'promedio_general' => $promedioGeneral,
+                    'estudiantes_aprobados' => $estudiantesAprobados,
+                    'estudiantes_desaprobados' => $estudiantesDesaprobados,
+                    'total_evaluaciones' => $evaluaciones->count()
                 ]
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('Error al obtener estadísticas del curso: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener estadísticas: ' . $e->getMessage()

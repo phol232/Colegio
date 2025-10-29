@@ -9,8 +9,12 @@ import { AsignacionCursos } from './pages/admin/AsignacionCursos';
 import { AsignacionEstudiantes } from './pages/admin/AsignacionEstudiantes';
 import { CatalogoCursos } from './pages/admin/CatalogoCursos';
 import { RegistroAsistencia } from './pages/docente/RegistroAsistencia';
-import { RegistroNotas } from './pages/docente/RegistroNotas';
-import { RegistroNotasUnidad } from './pages/docente/RegistroNotasUnidad';
+import { NotasIndex } from './pages/docente/NotasIndex';
+import { NotasEditor } from './pages/docente/NotasEditor';
+import { DocenteDashboard } from './pages/docente/DocenteDashboard';
+import { EstudianteDashboard } from './pages/estudiante/EstudianteDashboard';
+import { MisNotas } from './pages/estudiante/MisNotas';
+import { MisAsistencias } from './pages/estudiante/MisAsistencias';
 import { useAuthStore } from './stores/authStore';
 
 function App() {
@@ -68,6 +72,14 @@ function App() {
           }
         />
         <Route
+          path="/docente/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['docente']}>
+              <DocenteDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/docente/asistencia"
           element={
             <ProtectedRoute allowedRoles={['docente']}>
@@ -79,15 +91,39 @@ function App() {
           path="/docente/notas"
           element={
             <ProtectedRoute allowedRoles={['docente']}>
-              <RegistroNotas />
+              <NotasIndex />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/docente/notas/curso/:cursoId/unidad/:unidad"
+          path="/docente/notas/curso/:cursoId/mes/:mes"
           element={
             <ProtectedRoute allowedRoles={['docente']}>
-              <RegistroNotasUnidad />
+              <NotasEditor />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/estudiante/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['estudiante']}>
+              <EstudianteDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/estudiante/notas"
+          element={
+            <ProtectedRoute allowedRoles={['estudiante']}>
+              <MisNotas />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/estudiante/asistencias"
+          element={
+            <ProtectedRoute allowedRoles={['estudiante']}>
+              <MisAsistencias />
             </ProtectedRoute>
           }
         />

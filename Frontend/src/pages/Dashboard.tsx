@@ -1,8 +1,33 @@
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { Layout } from '../components/Layout';
 
 export const Dashboard = () => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      // Redirigir según el rol del usuario
+      switch (user.role) {
+        case 'estudiante':
+          navigate('/estudiante/dashboard');
+          break;
+        case 'docente':
+          navigate('/docente/dashboard');
+          break;
+        case 'padre':
+          navigate('/padre/dashboard');
+          break;
+        case 'admin':
+          // Mantener el dashboard general para admin
+          break;
+        default:
+          break;
+      }
+    }
+  }, [user, navigate]);
 
   if (!user) {
     return (
@@ -10,6 +35,18 @@ export const Dashboard = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Solo mostrar este dashboard para admin
+  if (user.role !== 'admin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Redirigiendo...</p>
         </div>
       </div>
     );

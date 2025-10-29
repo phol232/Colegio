@@ -16,6 +16,7 @@ class Evaluacion extends Model
     protected $fillable = [
         'curso_id',
         'unidad',
+        'mes',
         'nombre',
         'tipo_evaluacion',
         'peso',
@@ -24,6 +25,7 @@ class Evaluacion extends Model
 
     protected $casts = [
         'unidad' => 'integer',
+        'mes' => 'integer',
         'peso' => 'decimal:2',
         'orden' => 'integer',
         'created_at' => 'datetime',
@@ -64,6 +66,14 @@ class Evaluacion extends Model
     public function scopeUnidad($query, $unidad)
     {
         return $query->where('unidad', $unidad);
+    }
+
+    /**
+     * Scope para filtrar por mes
+     */
+    public function scopeMes($query, $mes)
+    {
+        return $query->where('mes', $mes);
     }
 
     /**
@@ -143,6 +153,26 @@ class Evaluacion extends Model
             3 => 'Tercera Unidad',
             4 => 'Cuarta Unidad',
             default => 'Unidad ' . $this->unidad,
+        };
+    }
+
+    /**
+     * Obtiene el nombre del mes
+     */
+    public function nombreMes(): string
+    {
+        return match($this->mes) {
+            3 => 'Marzo',
+            4 => 'Abril',
+            5 => 'Mayo',
+            6 => 'Junio',
+            7 => 'Julio',
+            8 => 'Agosto',
+            9 => 'Septiembre',
+            10 => 'Octubre',
+            11 => 'Noviembre',
+            12 => 'Diciembre',
+            default => 'Mes ' . $this->mes,
         };
     }
 }

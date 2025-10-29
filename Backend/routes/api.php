@@ -20,12 +20,12 @@ use App\Http\Controllers\PromedioController;
 
 // Rutas públicas (sin autenticación)
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:100,1');
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:100,1');
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:200,1');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:200,1');
 });
 
 // Rutas protegidas (requieren autenticación y rate limiting)
-Route::middleware(['auth.token', 'throttle:100,1'])->group(function () {
+Route::middleware(['auth.token', 'throttle:500,1'])->group(function () {
     
     // Autenticación
     Route::prefix('auth')->group(function () {
@@ -43,6 +43,7 @@ Route::middleware(['auth.token', 'throttle:100,1'])->group(function () {
     // Docentes - Endpoints específicos
     Route::middleware(['role:docente'])->group(function () {
         Route::get('/docente/cursos', [DocenteController::class, 'misCursos']);
+        Route::get('/docente/dashboard', [DocenteController::class, 'dashboard']);
         Route::get('/cursos/{cursoId}/estudiantes', [DocenteController::class, 'estudiantesCurso']);
     });
 
@@ -56,6 +57,7 @@ Route::middleware(['auth.token', 'throttle:100,1'])->group(function () {
     Route::middleware(['role:docente,estudiante,padre'])->group(function () {
         Route::get('/asistencias', [AsistenciaController::class, 'index']);
         Route::get('/asistencias/resumen', [AsistenciaController::class, 'resumen']);
+        Route::get('/asistencias/curso/{cursoId}/resumen', [AsistenciaController::class, 'resumenCurso']);
         Route::get('/asistencias/curso/{cursoId}/fecha/{fecha}', [AsistenciaController::class, 'porCursoYFecha']);
     });
 
@@ -80,6 +82,7 @@ Route::middleware(['auth.token', 'throttle:100,1'])->group(function () {
     // Notas - Endpoint específico para estudiantes
     Route::middleware(['role:estudiante'])->group(function () {
         Route::get('/notas/estudiante', [NotaController::class, 'misNotas']);
+        Route::get('/notas/estudiante/detalladas', [NotaController::class, 'misNotasDetalladas']);
     });
 
     // Evaluaciones - Solo docentes pueden gestionar
@@ -94,7 +97,7 @@ Route::middleware(['auth.token', 'throttle:100,1'])->group(function () {
     Route::middleware(['role:docente,estudiante,padre'])->group(function () {
         Route::get('/evaluaciones/{id}', [EvaluacionController::class, 'show']);
         Route::get('/evaluaciones/curso/{cursoId}', [EvaluacionController::class, 'getByCurso']);
-        Route::get('/evaluaciones/curso/{cursoId}/unidad/{unidad}', [EvaluacionController::class, 'getByCursoUnidad']);
+        Route::get('/evaluaciones/curso/{cursoId}/mes/{mes}', [EvaluacionController::class, 'getByCursoMes']);
     });
 
     // Notas Detalle - Solo docentes pueden registrar
