@@ -214,7 +214,7 @@ class AsistenciaController extends Controller
 
     /**
      * Obtiene las asistencias del estudiante autenticado
-     * GET /api/asistencias/estudiante?fecha=2025-10-30
+     * GET /api/asistencias/estudiante?mes=10
      */
     public function misAsistencias(Request $request): JsonResponse
     {
@@ -222,12 +222,12 @@ class AsistenciaController extends Controller
             $user = $request->attributes->get('user');
             $estudianteId = $user->usuario_id ?? $user->id;
             
-            // Obtener fecha del query string (opcional)
-            $fecha = $request->query('fecha');
+            // Obtener mes del query string (opcional)
+            $mes = $request->query('mes');
 
-            // Usar la función de PostgreSQL con filtro de fecha
-            if ($fecha) {
-                $asistencias = DB::select('SELECT * FROM get_asistencias_estudiante_fecha(?, ?::date)', [$estudianteId, $fecha]);
+            // Usar la función de PostgreSQL con filtro de mes
+            if ($mes) {
+                $asistencias = DB::select('SELECT * FROM get_asistencias_estudiante_por_mes(?, ?)', [$estudianteId, (int)$mes]);
             } else {
                 $asistencias = DB::select('SELECT * FROM get_asistencias_estudiante(?)', [$estudianteId]);
             }
@@ -242,6 +242,44 @@ class AsistenciaController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener asistencias'
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtiene el detalle de asistencias del estudiante autenticado para un curso específico
+     * GET /api/asistencias/estudiante/curso/{cursoId}
+     */
+    public function misAsistenciasPorCurso(Request $request, int $cursoId): JsonResponse
+    {
+        try {
+            $user = $request->attributes->get('user');
+            $estudianteId = $user->usuario_id ?? $user->id;
+
+            // Obtener todas las asistencias del estudiante en el curso
+            $asistencias = \App\Models\Asistencia::where('estudiante_id', $estudianteId)
+                ->where('curso_id', $cursoId)
+                ->orderBy('fecha', 'desc')
+                ->get()
+                ->map(function ($asistencia) {
+                    return [
+                        'id' => $asistencia->id,
+                        'fecha' => $asistencia->fecha,
+                        'estado' => $asistencia->estado,
+                        'observaciones' => $asistencia->observaciones
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $asistencias
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error al obtener detalle de asistencias del curso: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener detalle de asistencias'
             ], 500);
         }
     }

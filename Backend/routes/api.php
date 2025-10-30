@@ -11,6 +11,7 @@ use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\EvaluacionController;
 use App\Http\Controllers\NotaDetalleController;
 use App\Http\Controllers\PromedioController;
+use App\Http\Controllers\MatriculaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -64,6 +65,14 @@ Route::middleware(['auth.token', 'throttle:500,1'])->group(function () {
     // Asistencias - Endpoint específico para estudiantes
     Route::middleware(['role:estudiante'])->group(function () {
         Route::get('/asistencias/estudiante', [AsistenciaController::class, 'misAsistencias']);
+        Route::get('/asistencias/estudiante/curso/{cursoId}', [AsistenciaController::class, 'misAsistenciasPorCurso']);
+    });
+
+    // Matrícula - Endpoint específico para estudiantes
+    Route::middleware(['role:estudiante'])->group(function () {
+        Route::get('/matricula/opciones', [MatriculaController::class, 'obtenerOpciones']);
+        Route::get('/matricula/estado', [MatriculaController::class, 'verificarEstado']);
+        Route::post('/matricula', [MatriculaController::class, 'matricular']);
     });
 
     // Notas - Solo docentes pueden registrar

@@ -15,6 +15,7 @@ import { DocenteDashboard } from './pages/docente/DocenteDashboard';
 import { EstudianteDashboard } from './pages/estudiante/EstudianteDashboard';
 import { MisNotas } from './pages/estudiante/MisNotas';
 import { MisAsistencias } from './pages/estudiante/MisAsistencias';
+import { Matricula } from './pages/estudiante/Matricula';
 import { useAuthStore } from './stores/authStore';
 
 function App() {
@@ -124,6 +125,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['estudiante']}>
               <MisAsistencias />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/estudiante/matricula"
+          element={
+            <ProtectedRoute allowedRoles={['estudiante']}>
+              <Matricula />
             </ProtectedRoute>
           }
         />

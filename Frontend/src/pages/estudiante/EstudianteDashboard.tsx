@@ -80,20 +80,23 @@ export const EstudianteDashboard = () => {
             const notas = notasTransformadas;
             const asistencias = asistenciasTransformadas;
             
-            const promedioGeneral = notas.length > 0 
-                ? notas.reduce((sum: number, nota: any) => sum + nota.promedio_numerico, 0) / notas.length 
+            // Filtrar solo cursos con evaluaciones para el promedio
+            const notasConEvaluaciones = notas.filter((nota: any) => nota.total_evaluaciones > 0);
+            
+            const promedioGeneral = notasConEvaluaciones.length > 0 
+                ? notasConEvaluaciones.reduce((sum: number, nota: any) => sum + nota.promedio_numerico, 0) / notasConEvaluaciones.length 
                 : 0;
                 
             const asistenciaGeneral = asistencias.length > 0
                 ? asistencias.reduce((sum: number, asist: any) => sum + asist.porcentaje_asistencia, 0) / asistencias.length
                 : 0;
                 
-            const cursosAprobados = notas.filter((nota: any) => nota.promedio_numerico >= 11).length;
+            const cursosAprobados = notasConEvaluaciones.filter((nota: any) => nota.promedio_numerico >= 11).length;
             
             setEstadisticas({
                 promedio_general: promedioGeneral,
                 asistencia_general: asistenciaGeneral,
-                total_cursos: notas.length,
+                total_cursos: notasConEvaluaciones.length,
                 cursos_aprobados: cursosAprobados
             });
             

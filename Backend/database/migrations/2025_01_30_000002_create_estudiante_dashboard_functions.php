@@ -22,7 +22,7 @@ return new class extends Migration
                 SELECT 
                     c.id,
                     cc.nombre,
-                    COALESCE(AVG(nd.puntaje), 0)::NUMERIC(5,2) as promedio,
+                    AVG(nd.puntaje)::NUMERIC(5,2) as promedio,
                     CASE 
                         WHEN AVG(nd.puntaje) >= 18 THEN 'AD'
                         WHEN AVG(nd.puntaje) >= 14 THEN 'A'
@@ -33,10 +33,11 @@ return new class extends Migration
                 FROM estudiantes_cursos ec
                 JOIN cursos c ON ec.curso_id = c.id
                 JOIN cursos_catalogo cc ON c.curso_catalogo_id = cc.id
-                LEFT JOIN evaluaciones e ON e.curso_id = c.id
-                LEFT JOIN notas_detalle nd ON nd.evaluacion_id = e.id AND nd.estudiante_id = p_estudiante_id
+                JOIN evaluaciones e ON e.curso_id = c.id
+                JOIN notas_detalle nd ON nd.evaluacion_id = e.id AND nd.estudiante_id = p_estudiante_id
                 WHERE ec.estudiante_id = p_estudiante_id
                 GROUP BY c.id, cc.nombre
+                HAVING COUNT(nd.id) > 0
                 ORDER BY cc.nombre;
             END;
             \$\$ LANGUAGE plpgsql;
@@ -62,7 +63,7 @@ return new class extends Migration
                     COUNT(*) as total,
                     SUM(CASE WHEN a.estado = 'presente' THEN 1 ELSE 0 END) as presentes,
                     SUM(CASE WHEN a.estado = 'tardanza' THEN 1 ELSE 0 END) as tarde,
-                    SUM(CASE WHEN a.estado = 'falta' THEN 1 ELSE 0 END) as ausente,
+                    SUM(CASE WHEN a.estado = 'ausente' THEN 1 ELSE 0 END) as ausente,
                     CASE 
                         WHEN COUNT(*) > 0 
                         THEN ROUND(((SUM(CASE WHEN a.estado = 'presente' THEN 1 ELSE 0 END) + 
@@ -94,7 +95,7 @@ return new class extends Migration
                 RETURN QUERY
                 WITH notas_stats AS (
                     SELECT 
-                        COUNT(DISTINCT c.id) as total_cursos,
+                        COUNT(DISTINCT CASE WHEN promedio > 0 THEN c.id END) as total_cursos,
                         AVG(promedio) FILTER (WHERE promedio > 0) as promedio_gral,
                         COUNT(DISTINCT CASE WHEN promedio >= 11 THEN c.id END) as aprobados
                     FROM estudiantes_cursos ec

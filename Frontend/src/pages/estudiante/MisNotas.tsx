@@ -50,56 +50,42 @@ const getNotaBg = (puntaje: number | null): string => {
     return 'bg-[#FEF2F2]';
 };
 
-// Componente para la fila de evaluación
-const EvaluacionRow: React.FC<{ evaluacion: NotaDetallada['evaluaciones'][0] }> = ({ evaluacion }) => (
-    <tr className="border-b border-[#F5F7FA]">
-        <td className="py-3 px-4">
-            <p className="text-sm font-medium text-[#1F2937]">{evaluacion.nombre}</p>
-        </td>
-        <td className="py-3 px-4">
-            <span className="px-2 py-1 bg-[#EFF6FF] text-[#17A2E5] rounded text-xs">
-                {evaluacion.tipo_evaluacion}
-            </span>
-        </td>
-        <td className="py-3 px-4 text-center">
-            <span className="text-sm text-[#6B7280]">
-                {MESES[evaluacion.mes as keyof typeof MESES]}
-            </span>
-        </td>
-        <td className="py-3 px-4 text-center">
-            {evaluacion.peso ? (
-                <span className="text-sm font-medium text-[#1F2937]">{evaluacion.peso}%</span>
-            ) : (
-                <span className="text-sm text-[#6B7280]">-</span>
-            )}
-        </td>
-        <td className="py-3 px-4 text-center">
-            <div className={`inline-flex items-center justify-center w-16 h-8 rounded-lg ${getNotaBg(evaluacion.puntaje)}`}>
-                <span className={`text-sm font-bold ${getNotaColor(evaluacion.puntaje)}`}>
+// Componente para la tarjeta de evaluación en el modal
+const EvaluacionCard: React.FC<{ evaluacion: NotaDetallada['evaluaciones'][0] }> = ({ evaluacion }) => (
+    <div className="bg-white rounded-lg border border-[#E5E7EB] p-4 hover:shadow-md transition-shadow">
+        <div className="flex items-start justify-between mb-3">
+            <div className="flex-1">
+                <h4 className="text-sm font-semibold text-[#1F2937] mb-1">{evaluacion.nombre}</h4>
+                <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-[#EFF6FF] text-[#17A2E5] rounded text-xs font-medium">
+                        {evaluacion.tipo_evaluacion}
+                    </span>
+                    <span className="text-xs text-[#6B7280]">
+                        {MESES[evaluacion.mes as keyof typeof MESES]}
+                    </span>
+                </div>
+            </div>
+            <div className={`flex items-center justify-center w-16 h-16 rounded-lg ${getNotaBg(evaluacion.puntaje)}`}>
+                <span className={`text-xl font-bold ${getNotaColor(evaluacion.puntaje)}`}>
                     {evaluacion.puntaje !== null ? evaluacion.puntaje.toFixed(1) : '-'}
                 </span>
             </div>
-        </td>
-    </tr>
-);
-
-// Componente para el estado vacío
-const EmptyState: React.FC<{ filtroMes: number | null }> = ({ filtroMes }) => (
-    <div className="text-center py-8">
-        <svg className="w-16 h-16 mx-auto mb-4 text-[#E5E7EB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        <p className="text-sm text-[#6B7280]">
-            {filtroMes ? `No hay evaluaciones en ${MESES[filtroMes as keyof typeof MESES]}` : 'No hay evaluaciones registradas'}
-        </p>
+        </div>
+        {evaluacion.peso && (
+            <div className="text-xs text-[#6B7280]">
+                Peso: <span className="font-medium text-[#1F2937]">{evaluacion.peso}%</span>
+            </div>
+        )}
     </div>
 );
 
 // Componente para la tarjeta de curso
 const CursoCard: React.FC<{
     curso: NotaDetallada;
-    evaluacionesVisibles: NotaDetallada['evaluaciones']
-}> = ({ curso, evaluacionesVisibles }) => {
+    mesSeleccionado: number | null;
+    onMesChange: (mes: number | null) => void;
+    onVerNotas: () => void;
+}> = ({ curso, mesSeleccionado, onMesChange, onVerNotas }) => {
     const courseColor = getCourseColor(curso.curso_nombre);
 
     return (
@@ -128,35 +114,27 @@ const CursoCard: React.FC<{
                 </div>
             </div>
 
-            {/* Evaluaciones - Versión simplificada */}
-            <div className="p-4 border-t border-[#E5E7EB]">
-                {evaluacionesVisibles.length > 0 ? (
-                    <div className="space-y-2">
-                        <p className="text-xs font-semibold text-[#6B7280] uppercase mb-2">Evaluaciones</p>
-                        {evaluacionesVisibles.slice(0, 3).map((evaluacion) => (
-                            <div key={evaluacion.id} className="flex items-center justify-between py-2 border-b border-[#F5F7FA] last:border-0">
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-[#1F2937] truncate">{evaluacion.nombre}</p>
-                                    <p className="text-xs text-[#6B7280]">{MESES[evaluacion.mes as keyof typeof MESES]}</p>
-                                </div>
-                                <div className={`ml-2 px-2 py-1 rounded ${getNotaBg(evaluacion.puntaje)}`}>
-                                    <span className={`text-sm font-bold ${getNotaColor(evaluacion.puntaje)}`}>
-                                        {evaluacion.puntaje !== null ? evaluacion.puntaje.toFixed(1) : '-'}
-                                    </span>
-                                </div>
-                            </div>
+            {/* Controles */}
+            <div className="p-4 border-t border-[#E5E7EB] space-y-3">
+                <div>
+                    <label className="text-xs font-medium text-[#6B7280] block mb-1">Filtrar por mes:</label>
+                    <select
+                        value={mesSeleccionado || ''}
+                        onChange={(e) => onMesChange(e.target.value ? parseInt(e.target.value) : null)}
+                        className="w-full px-2 py-1.5 text-sm border border-[#E5E7EB] rounded focus:ring-2 focus:ring-[#17A2E5]"
+                    >
+                        <option value="">Todos los meses</option>
+                        {Object.entries(MESES).map(([num, nombre]) => (
+                            <option key={num} value={num}>{nombre}</option>
                         ))}
-                        {evaluacionesVisibles.length > 3 && (
-                            <p className="text-xs text-[#17A2E5] text-center pt-2">
-                                +{evaluacionesVisibles.length - 3} más
-                            </p>
-                        )}
-                    </div>
-                ) : (
-                    <div className="text-center py-4">
-                        <p className="text-xs text-[#6B7280]">Sin evaluaciones</p>
-                    </div>
-                )}
+                    </select>
+                </div>
+                <button
+                    onClick={onVerNotas}
+                    className="w-full px-3 py-2 bg-[#17A2E5] hover:bg-[#1589C6] text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                    Ver Notas
+                </button>
             </div>
         </div>
     );
@@ -166,7 +144,9 @@ export const MisNotas = () => {
     const navigate = useNavigate();
     const [notasDetalladas, setNotasDetalladas] = useState<NotaDetallada[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filtroMes, setFiltroMes] = useState<number | null>(null);
+    const [cursoSeleccionado, setCursoSeleccionado] = useState<NotaDetallada | null>(null);
+    const [mesSeleccionado, setMesSeleccionado] = useState<{ [key: number]: number | null }>({});
+    const [mesModalSeleccionado, setMesModalSeleccionado] = useState<number | null>(null);
 
     useEffect(() => {
         cargarNotasDetalladas();
@@ -176,8 +156,7 @@ export const MisNotas = () => {
         try {
             setLoading(true);
             const response = await api.get('/notas/estudiante/detalladas');
-            
-            // Los datos ya vienen con evaluaciones desde el backend
+
             const notasTransformadas = (response.data.data || []).map((nota: any) => ({
                 curso_id: nota.curso_id,
                 curso_nombre: nota.curso_nombre,
@@ -186,7 +165,7 @@ export const MisNotas = () => {
                 promedio_numerico: nota.promedio_numerico,
                 promedio_literal: nota.promedio_literal
             }));
-            
+
             setNotasDetalladas(notasTransformadas);
         } catch (error) {
             console.error('Error al cargar notas detalladas:', error);
@@ -195,9 +174,23 @@ export const MisNotas = () => {
         }
     };
 
-    const evaluacionesFiltradas = (evaluaciones: NotaDetallada['evaluaciones']) => {
-        if (filtroMes === null) return evaluaciones;
-        return evaluaciones.filter(evaluacion => evaluacion.mes === filtroMes);
+    const handleVerNotas = (curso: NotaDetallada) => {
+        setCursoSeleccionado(curso);
+        setMesModalSeleccionado(mesSeleccionado[curso.curso_id] || null);
+    };
+
+    const handleCerrarModal = () => {
+        setCursoSeleccionado(null);
+        setMesModalSeleccionado(null);
+    };
+
+    const handleMesChange = (cursoId: number, mes: number | null) => {
+        setMesSeleccionado(prev => ({ ...prev, [cursoId]: mes }));
+    };
+
+    const getEvaluacionesFiltradas = (evaluaciones: NotaDetallada['evaluaciones']) => {
+        if (!mesModalSeleccionado) return evaluaciones;
+        return evaluaciones.filter(ev => ev.mes === mesModalSeleccionado);
     };
 
     if (loading) {
@@ -234,23 +227,6 @@ export const MisNotas = () => {
                 </div>
 
                 <div className="max-w-[1600px] mx-auto px-6 py-6">
-                    {/* Filtros */}
-                    <div className="mb-6 bg-white rounded-lg shadow border border-[#E5E7EB] p-4">
-                        <div className="flex items-center space-x-4">
-                            <label className="text-sm font-medium text-[#6B7280]">Filtrar por mes:</label>
-                            <select
-                                value={filtroMes || ''}
-                                onChange={(e) => setFiltroMes(e.target.value ? parseInt(e.target.value) : null)}
-                                className="px-3 py-2 border border-[#E5E7EB] rounded-lg focus:ring-2 focus:ring-[#17A2E5] text-sm"
-                            >
-                                <option value="">Todos los meses</option>
-                                {Object.entries(MESES).map(([num, nombre]) => (
-                                    <option key={num} value={num}>{nombre}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
                     {/* Notas por Curso */}
                     {notasDetalladas.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -258,7 +234,9 @@ export const MisNotas = () => {
                                 <CursoCard
                                     key={curso.curso_id}
                                     curso={curso}
-                                    evaluacionesVisibles={evaluacionesFiltradas(curso.evaluaciones)}
+                                    mesSeleccionado={mesSeleccionado[curso.curso_id] || null}
+                                    onMesChange={(mes) => handleMesChange(curso.curso_id, mes)}
+                                    onVerNotas={() => handleVerNotas(curso)}
                                 />
                             ))}
                         </div>
@@ -274,6 +252,72 @@ export const MisNotas = () => {
                         </div>
                     )}
                 </div>
+
+                {/* Modal de Notas */}
+                {cursoSeleccionado && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                            {/* Header del Modal */}
+                            <div className="px-6 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-xl font-bold text-[#0E2B5C]">{cursoSeleccionado.curso_nombre}</h2>
+                                    <p className="text-sm text-[#6B7280] mt-1">
+                                        Promedio: <span className={`font-bold ${getNotaColor(cursoSeleccionado.promedio_numerico)}`}>
+                                            {cursoSeleccionado.promedio_numerico.toFixed(1)}
+                                        </span> ({cursoSeleccionado.promedio_literal})
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={handleCerrarModal}
+                                    className="text-[#6B7280] hover:text-[#1F2937] transition-colors"
+                                >
+                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {/* Filtro de mes en el modal */}
+                            <div className="px-6 py-3 bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                                <div className="flex items-center gap-3">
+                                    <label className="text-sm font-medium text-[#6B7280]">Filtrar por mes:</label>
+                                    <select
+                                        value={mesModalSeleccionado || ''}
+                                        onChange={(e) => setMesModalSeleccionado(e.target.value ? parseInt(e.target.value) : null)}
+                                        className="px-3 py-1.5 text-sm border border-[#E5E7EB] rounded-lg focus:ring-2 focus:ring-[#17A2E5]"
+                                    >
+                                        <option value="">Todos los meses</option>
+                                        {Object.entries(MESES).map(([num, nombre]) => (
+                                            <option key={num} value={num}>{nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Contenido del Modal - Tarjetas de Evaluaciones */}
+                            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+                                {getEvaluacionesFiltradas(cursoSeleccionado.evaluaciones).length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {getEvaluacionesFiltradas(cursoSeleccionado.evaluaciones).map((evaluacion) => (
+                                            <EvaluacionCard key={evaluacion.id} evaluacion={evaluacion} />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12">
+                                        <svg className="w-16 h-16 mx-auto mb-4 text-[#E5E7EB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        <p className="text-sm text-[#6B7280]">
+                                            {mesModalSeleccionado
+                                                ? `No hay evaluaciones en ${MESES[mesModalSeleccionado as keyof typeof MESES]}`
+                                                : 'No hay evaluaciones registradas'}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </Layout>
     );
