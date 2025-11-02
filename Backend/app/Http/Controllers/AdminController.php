@@ -798,4 +798,117 @@ class AdminController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Obtener estadísticas generales para el dashboard del administrador
+     * GET /api/admin/estadisticas
+     */
+    public function obtenerEstadisticas(): JsonResponse
+    {
+        try {
+            // Total de estudiantes (usuarios con role='estudiante')
+            $totalEstudiantes = DB::table('usuarios')
+                ->where('role', 'estudiante')
+                ->count();
+            
+            // Total de docentes (usuarios con role='docente')
+            $totalDocentes = DB::table('usuarios')
+                ->where('role', 'docente')
+                ->count();
+            
+            // Total de cursos
+            $totalCursos = DB::table('cursos')->count();
+            
+            // Total de secciones
+            $totalSecciones = DB::table('secciones')->count();
+
+            // Estudiantes por nivel (a través de cursos matriculados)
+            $estudiantesPorNivel = DB::table('estudiantes_cursos as ec')
+                ->join('cursos as c', 'ec.curso_id', '=', 'c.id')
+                ->join('secciones as s', 'c.seccion_id', '=', 's.id')
+                ->join('grados as g', 's.grado_id', '=', 'g.id')
+                ->select('g.nivel', DB::raw('COUNT(DISTINCT ec.estudiante_id) as total'))
+                ->groupBy('g.nivel')
+                ->pluck('total', 'nivel');
+
+            // Cursos por nivel (a través de las secciones y grados)
+            $cursosPorNivel = DB::table('cursos as c')
+                ->join('secciones as s', 'c.seccion_id', '=', 's.id')
+                ->join('grados as g', 's.grado_id', '=', 'g.id')
+                ->select('g.nivel', DB::raw('COUNT(DISTINCT c.id) as total'))
+                ->groupBy('g.nivel')
+                ->pluck('total', 'nivel');
+
+            return response()->json([
+                'data' => [
+                    'total_estudiantes' => $totalEstudiantes,
+                    'total_docentes' => $totalDocentes,
+                    'total_cursos' => $totalCursos,
+                    'total_secciones' => $totalSecciones,
+                    'estudiantes_por_nivel' => [
+                        'primaria' => $estudiantesPorNivel['primaria'] ?? 0,
+                        'secundaria' => $estudiantesPorNivel['secundaria'] ?? 0,
+                    ],
+                    'cursos_por_nivel' => [
+                        'primaria' => $cursosPorNivel['primaria'] ?? 0,
+                        'secundaria' => $cursosPorNivel['secundaria'] ?? 0,
+                    ],
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener estadísticas: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtener información detallada de las secciones con ocupación
+     * GET /api/admin/secciones-info
+     */
+    public function obtenerInformacionSecciones(): JsonResponse
+    {
+        try {
+            $secciones = DB::table('secciones as s')
+                ->join('grados as g', 's.grado_id', '=', 'g.id')
+                ->leftJoin(
+                    DB::raw('(SELECT c.seccion_id, COUNT(DISTINCT ec.estudiante_id) as total_estudiantes 
+                              FROM cursos c
+                              LEFT JOIN estudiantes_cursos ec ON ec.curso_id = c.id
+                              GROUP BY c.seccion_id) as es'),
+                    's.id', '=', 'es.seccion_id'
+                )
+                ->leftJoin(
+                    DB::raw('(SELECT c.seccion_id, u.name
+                              FROM cursos c
+                              JOIN usuarios u ON c.docente_id = u.id
+                              WHERE u.role = \'docente\'
+                              GROUP BY c.seccion_id, u.name
+                              LIMIT 1) as d'),
+                    's.id', '=', 'd.seccion_id'
+                )
+                ->select(
+                    's.id',
+                    DB::raw("CONCAT(g.numero, 'ro ', s.nombre) as nombre"),
+                    'g.nivel',
+                    'g.numero as grado_numero',
+                    DB::raw('COALESCE(es.total_estudiantes, 0) as estudiantes_actual'),
+                    's.capacidad',
+                    DB::raw('ROUND((COALESCE(es.total_estudiantes, 0) * 100.0 / s.capacidad), 2) as porcentaje_ocupacion'),
+                    DB::raw("COALESCE(d.name, 'Sin asignar') as docente_tutor")
+                )
+                ->orderBy('g.nivel')
+                ->orderBy('g.numero')
+                ->orderBy('s.nombre')
+                ->get();
+
+            return response()->json(['data' => $secciones]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener información de secciones: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

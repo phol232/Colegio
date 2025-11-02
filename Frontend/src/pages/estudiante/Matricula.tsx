@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
+import { Modal } from '../../components/Modal';
 import api from '../../services/api';
 
 interface Seccion {
@@ -26,6 +27,18 @@ export const Matricula = () => {
     const [matriculado, setMatriculado] = useState(false);
     const [infoMatricula, setInfoMatricula] = useState<{ grado: string; seccion: string } | null>(null);
     const [procesando, setProcesando] = useState(false);
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+        onConfirm?: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'info'
+    });
 
     useEffect(() => {
         cargarDatos();
@@ -52,28 +65,42 @@ export const Matricula = () => {
         }
     };
 
-    const handleMatricular = async (gradoId: number, seccionId: number, gradoNombre: string, seccionNombre: string) => {
-        if (!confirm(`¿Estás seguro de matricularte en ${gradoNombre} - Sección ${seccionNombre}? Esta acción no se puede deshacer.`)) {
-            return;
-        }
+    const handleMatricular = (gradoId: number, seccionId: number, gradoNombre: string, seccionNombre: string) => {
+        setModalConfig({
+            isOpen: true,
+            title: 'Confirmar matrícula',
+            message: `¿Estás seguro de matricularte en ${gradoNombre} - Sección ${seccionNombre}?\n\nEsta acción no se puede deshacer.`,
+            type: 'confirm',
+            onConfirm: async () => {
+                try {
+                    setProcesando(true);
+                    const response = await api.post('/matricula', {
+                        grado_id: gradoId,
+                        seccion_id: seccionId
+                    });
 
-        try {
-            setProcesando(true);
-            const response = await api.post('/matricula', {
-                grado_id: gradoId,
-                seccion_id: seccionId
-            });
-
-            if (response.data.success) {
-                alert(`¡Matrícula exitosa! Has sido matriculado en ${gradoNombre} - Sección ${seccionNombre}. Se te han asignado ${response.data.data.cursos_asignados} cursos.`);
-                cargarDatos(); // Recargar para mostrar el estado actualizado
+                    if (response.data.success) {
+                        setModalConfig({
+                            isOpen: true,
+                            title: '✓ ¡Matrícula exitosa!',
+                            message: `Has sido matriculado en ${gradoNombre} - Sección ${seccionNombre}.\n\nSe te han asignado ${response.data.data.cursos_asignados} cursos.`,
+                            type: 'success'
+                        });
+                        cargarDatos(); // Recargar para mostrar el estado actualizado
+                    }
+                } catch (error: any) {
+                    console.error('Error al matricular:', error);
+                    setModalConfig({
+                        isOpen: true,
+                        title: 'Error al matricular',
+                        message: error.response?.data?.message || 'Error al realizar la matrícula.',
+                        type: 'error'
+                    });
+                } finally {
+                    setProcesando(false);
+                }
             }
-        } catch (error: any) {
-            console.error('Error al matricular:', error);
-            alert(error.response?.data?.message || 'Error al realizar la matrícula');
-        } finally {
-            setProcesando(false);
-        }
+        });
     };
 
     if (loading) {
@@ -236,6 +263,18 @@ export const Matricula = () => {
                     )}
                 </div>
             </div>
+
+            {/* Modal de notificaciones */}
+            <Modal
+                isOpen={modalConfig.isOpen}
+                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                type={modalConfig.type}
+                onConfirm={modalConfig.onConfirm}
+                confirmText={modalConfig.type === 'confirm' ? 'Matricularme' : 'Aceptar'}
+                cancelText="Cancelar"
+            />
         </Layout>
     );
 };

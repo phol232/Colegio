@@ -122,7 +122,6 @@ export const Register = () => {
                             >
                                 <option value="estudiante">Estudiante</option>
                                 <option value="docente">Docente</option>
-                                <option value="padre">Padre/Tutor</option>
                                 <option value="admin">Administrador</option>
                             </select>
                         </div>

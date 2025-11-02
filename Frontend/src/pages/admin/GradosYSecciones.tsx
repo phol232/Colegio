@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '../../components/Layout';
+import { Modal } from '../../components/Modal';
 import api from '../../services/api';
 
 interface Grado {
@@ -32,6 +33,18 @@ export const GradosYSecciones = () => {
     const [nombreGrado, setNombreGrado] = useState('');
     const [nombreSeccion, setNombreSeccion] = useState('');
     const [capacidad, setCapacidad] = useState(30);
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+        onConfirm?: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'info'
+    });
 
     useEffect(() => {
         cargarGrados();
@@ -74,7 +87,12 @@ export const GradosYSecciones = () => {
             setNumero(1);
             setNombreGrado('');
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al guardar grado');
+            setModalConfig({
+                isOpen: true,
+                title: 'Error al guardar',
+                message: error.response?.data?.message || 'Error al guardar grado.',
+                type: 'error'
+            });
         }
     };
 
@@ -111,7 +129,12 @@ export const GradosYSecciones = () => {
             setNombreSeccion('');
             setCapacidad(30);
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al guardar sección');
+            setModalConfig({
+                isOpen: true,
+                title: 'Error al guardar',
+                message: error.response?.data?.message || 'Error al guardar sección.',
+                type: 'error'
+            });
         }
     };
 
@@ -123,67 +146,49 @@ export const GradosYSecciones = () => {
     };
 
     const eliminarGrado = async (id: number) => {
-        if (!confirm('¿Estás seguro de eliminar este grado? Se eliminarán todas sus secciones y cursos.')) return;
-
-        try {
-            await api.delete(`/admin/grados/${id}`);
-            cargarGrados();
-        } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al eliminar grado');
-        }
+        setModalConfig({
+            isOpen: true,
+            title: 'Confirmar eliminación',
+            message: '¿Estás seguro de eliminar este grado? Se eliminarán todas sus secciones y cursos.',
+            type: 'confirm',
+            onConfirm: async () => {
+                setModalConfig({ ...modalConfig, isOpen: false });
+                try {
+                    await api.delete(`/admin/grados/${id}`);
+                    cargarGrados();
+                } catch (error: any) {
+                    setModalConfig({
+                        isOpen: true,
+                        title: 'Error al eliminar',
+                        message: error.response?.data?.message || 'Error al eliminar grado.',
+                        type: 'error'
+                    });
+                }
+            }
+        });
     };
 
     const eliminarSeccion = async (id: number) => {
-        if (!confirm('¿Estás seguro de eliminar esta sección? Se eliminarán todos sus cursos.')) return;
-
-        try {
-            await api.delete(`/admin/secciones/${id}`);
-            cargarGrados();
-        } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al eliminar sección');
-        }
-    };
-
-    const actualizarGrado = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editingGrado) return;
-
-        try {
-            await api.put(`/admin/grados/${editingGrado.id}`, {
-                nivel,
-                numero,
-                nombre: nombreGrado
-            });
-            setShowGradoModal(false);
-            setEditingGrado(null);
-            cargarGrados();
-            // Reset form
-            setNivel('primaria');
-            setNumero(1);
-            setNombreGrado('');
-        } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al actualizar grado');
-        }
-    };
-
-    const actualizarSeccion = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editingSeccion) return;
-
-        try {
-            await api.put(`/admin/secciones/${editingSeccion.id}`, {
-                nombre: nombreSeccion,
-                capacidad
-            });
-            setShowSeccionModal(false);
-            setEditingSeccion(null);
-            cargarGrados();
-            // Reset form
-            setNombreSeccion('');
-            setCapacidad(30);
-        } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al actualizar sección');
-        }
+        setModalConfig({
+            isOpen: true,
+            title: 'Confirmar eliminación',
+            message: '¿Estás seguro de eliminar esta sección? Se eliminarán todos sus cursos.',
+            type: 'confirm',
+            onConfirm: async () => {
+                setModalConfig({ ...modalConfig, isOpen: false });
+                try {
+                    await api.delete(`/admin/secciones/${id}`);
+                    cargarGrados();
+                } catch (error: any) {
+                    setModalConfig({
+                        isOpen: true,
+                        title: 'Error al eliminar',
+                        message: error.response?.data?.message || 'Error al eliminar sección.',
+                        type: 'error'
+                    });
+                }
+            }
+        });
     };
 
     if (loading) {
@@ -454,6 +459,16 @@ export const GradosYSecciones = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Modal de notificaciones */}
+                <Modal
+                    isOpen={modalConfig.isOpen}
+                    onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                    title={modalConfig.title}
+                    message={modalConfig.message}
+                    type={modalConfig.type}
+                    onConfirm={modalConfig.onConfirm}
+                />
             </div>
         </Layout>
     );

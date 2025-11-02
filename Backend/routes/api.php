@@ -158,6 +158,10 @@ Route::middleware(['auth.token', 'throttle:500,1'])->group(function () {
 
     // Administración - Solo administradores
     Route::middleware(['role:admin'])->prefix('admin')->group(function () {
+        // Dashboard y Estadísticas
+        Route::get('/estadisticas', [App\Http\Controllers\AdminController::class, 'obtenerEstadisticas']);
+        Route::get('/secciones-info', [App\Http\Controllers\AdminController::class, 'obtenerInformacionSecciones']);
+        
         // Grados
         Route::get('/grados', [App\Http\Controllers\AdminController::class, 'listarGrados']);
         Route::post('/grados', [App\Http\Controllers\AdminController::class, 'crearGrado']);

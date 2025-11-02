@@ -137,19 +137,20 @@ class AnalisisService
         $cacheKey = "analisis:generales:" . md5($fechaInicio . $fechaFin);
 
         return Cache::remember($cacheKey, 1800, function () use ($fechaInicio, $fechaFin) {
+            // Estadísticas generales
             $query = "
                 SELECT 
                     COUNT(DISTINCT f.estudiante_key) as total_estudiantes,
                     COUNT(DISTINCT f.curso_key) as total_cursos,
-                    AVG(f.promedio_notas) as promedio_general_notas,
-                    AVG(f.porcentaje_asistencia) as promedio_general_asistencia,
+                    AVG(f.promedio_notas) as promedio_general,
+                    AVG(f.porcentaje_asistencia) as promedio_asistencia,
                     SUM(f.total_asistencias) as total_asistencias_registradas,
                     SUM(f.total_faltas) as total_faltas_registradas,
                     COUNT(CASE WHEN f.promedio_notas >= 11 THEN 1 END) as total_aprobados,
                     COUNT(CASE WHEN f.promedio_notas < 11 AND f.promedio_notas > 0 THEN 1 END) as total_desaprobados
                 FROM fact_rendimiento_estudiantil f
                 JOIN dim_tiempo t ON f.tiempo_key = t.tiempo_key
-                WHERE 1=1
+                WHERE f.promedio_notas IS NOT NULL
             ";
 
             $params = [];
@@ -169,17 +170,86 @@ class AnalisisService
             if (empty($resultado)) {
                 return [
                     'total_estudiantes' => 0,
-                    'total_cursos' => 0,
-                    'promedio_general_notas' => 0,
-                    'promedio_general_asistencia' => 0,
-                    'total_asistencias_registradas' => 0,
-                    'total_faltas_registradas' => 0,
-                    'total_aprobados' => 0,
-                    'total_desaprobados' => 0
+                    'promedio_general' => 0,
+                    'promedio_asistencia' => 0,
+                    'cursos_con_bajo_rendimiento' => 0,
+                    'distribucion_notas' => [
+                        'excelente' => 0,
+                        'bueno' => 0,
+                        'regular' => 0,
+                        'bajo' => 0
+                    ]
                 ];
             }
 
-            return $resultado[0];
+            $datos = $resultado[0];
+
+            // Distribución de notas
+            $distribucionQuery = "
+                SELECT 
+                    COUNT(CASE WHEN f.promedio_notas >= 18 AND f.promedio_notas <= 20 THEN 1 END) as excelente,
+                    COUNT(CASE WHEN f.promedio_notas >= 15 AND f.promedio_notas < 18 THEN 1 END) as bueno,
+                    COUNT(CASE WHEN f.promedio_notas >= 11 AND f.promedio_notas < 15 THEN 1 END) as regular,
+                    COUNT(CASE WHEN f.promedio_notas >= 0 AND f.promedio_notas < 11 THEN 1 END) as bajo
+                FROM fact_rendimiento_estudiantil f
+                JOIN dim_tiempo t ON f.tiempo_key = t.tiempo_key
+                WHERE f.promedio_notas IS NOT NULL
+            ";
+
+            $distParams = [];
+
+            if ($fechaInicio) {
+                $distribucionQuery .= " AND t.fecha >= ?";
+                $distParams[] = $fechaInicio;
+            }
+
+            if ($fechaFin) {
+                $distribucionQuery .= " AND t.fecha <= ?";
+                $distParams[] = $fechaFin;
+            }
+
+            $distribucion = $this->consultarOLAP($distribucionQuery, $distParams);
+            $dist = $distribucion[0] ?? [
+                'excelente' => 0,
+                'bueno' => 0,
+                'regular' => 0,
+                'bajo' => 0
+            ];
+
+            // Cursos con bajo rendimiento (promedio < 11)
+            $bajoRendimientoQuery = "
+                SELECT COUNT(DISTINCT f.curso_key) as total
+                FROM fact_rendimiento_estudiantil f
+                JOIN dim_tiempo t ON f.tiempo_key = t.tiempo_key
+                WHERE f.promedio_notas IS NOT NULL AND f.promedio_notas < 11
+            ";
+
+            $brParams = [];
+
+            if ($fechaInicio) {
+                $bajoRendimientoQuery .= " AND t.fecha >= ?";
+                $brParams[] = $fechaInicio;
+            }
+
+            if ($fechaFin) {
+                $bajoRendimientoQuery .= " AND t.fecha <= ?";
+                $brParams[] = $fechaFin;
+            }
+
+            $bajoRendimiento = $this->consultarOLAP($bajoRendimientoQuery, $brParams);
+
+            return [
+                'total_estudiantes' => (int) ($datos['total_estudiantes'] ?? 0),
+                'promedio_general' => round((float) ($datos['promedio_general'] ?? 0), 2),
+                'promedio_asistencia' => round((float) ($datos['promedio_asistencia'] ?? 0), 2),
+                'cursos_con_bajo_rendimiento' => (int) ($bajoRendimiento[0]['total'] ?? 0),
+                'distribucion_notas' => [
+                    'excelente' => (int) ($dist['excelente'] ?? 0),
+                    'bueno' => (int) ($dist['bueno'] ?? 0),
+                    'regular' => (int) ($dist['regular'] ?? 0),
+                    'bajo' => (int) ($dist['bajo'] ?? 0)
+                ]
+            ];
         });
     }
 
@@ -287,17 +357,17 @@ class AnalisisService
         return Cache::remember($cacheKey, 3600, function () use ($fechaInicio, $fechaFin) {
             $query = "
                 SELECT 
-                    c.nombre as curso_nombre,
-                    c.codigo as curso_codigo,
+                    c.curso_id as id,
+                    c.nombre,
                     COUNT(DISTINCT f.estudiante_key) as total_estudiantes,
-                    AVG(f.promedio_notas) as promedio_notas,
-                    AVG(f.porcentaje_asistencia) as promedio_asistencia,
+                    AVG(f.promedio_notas) as promedio,
+                    AVG(f.porcentaje_asistencia) as asistencia,
                     COUNT(CASE WHEN f.promedio_notas >= 11 THEN 1 END) as aprobados,
                     COUNT(CASE WHEN f.promedio_notas < 11 AND f.promedio_notas > 0 THEN 1 END) as desaprobados
                 FROM fact_rendimiento_estudiantil f
                 JOIN dim_curso c ON f.curso_key = c.curso_key
                 JOIN dim_tiempo t ON f.tiempo_key = t.tiempo_key
-                WHERE 1=1
+                WHERE f.promedio_notas IS NOT NULL
             ";
 
             $params = [];
@@ -312,9 +382,30 @@ class AnalisisService
                 $params[] = $fechaFin;
             }
 
-            $query .= " GROUP BY c.nombre, c.codigo ORDER BY promedio_notas DESC";
+            $query .= " GROUP BY c.curso_id, c.nombre ORDER BY promedio DESC";
 
-            return $this->consultarOLAP($query, $params);
+            $resultados = $this->consultarOLAP($query, $params);
+
+            // Agregar tendencia basada en el promedio
+            return array_map(function ($curso) {
+                $promedio = (float) $curso['promedio'];
+                $tendencia = 'stable';
+
+                if ($promedio >= 15) {
+                    $tendencia = 'up';
+                } elseif ($promedio < 11) {
+                    $tendencia = 'down';
+                }
+
+                return [
+                    'id' => (int) $curso['id'],
+                    'nombre' => $curso['nombre'],
+                    'promedio' => round($promedio, 2),
+                    'asistencia' => round((float) $curso['asistencia'], 2),
+                    'total_estudiantes' => (int) $curso['total_estudiantes'],
+                    'tendencia' => $tendencia
+                ];
+            }, $resultados);
         });
     }
 }

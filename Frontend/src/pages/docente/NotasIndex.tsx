@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
+import { Modal } from '../../components/Modal';
 import { getCourseColor } from '../../utils/courseColors';
 import api from '../../services/api';
 
@@ -11,6 +12,7 @@ interface MesSelectorProps {
 
 const MesSelector: React.FC<MesSelectorProps> = ({ cursoId, onMesSeleccionado }) => {
     const [mesSeleccionado, setMesSeleccionado] = useState<string>('');
+    const [showModal, setShowModal] = useState(false);
 
     const meses = [
         { valor: '3', nombre: 'Marzo' },
@@ -33,32 +35,42 @@ const MesSelector: React.FC<MesSelectorProps> = ({ cursoId, onMesSeleccionado })
         if (mesSeleccionado) {
             onMesSeleccionado(cursoId, parseInt(mesSeleccionado));
         } else {
-            alert('Por favor selecciona un mes');
+            setShowModal(true);
         }
     };
 
     return (
-        <div className="space-y-2">
-            <p className="text-xs font-medium text-[#6B7280]">Seleccionar mes:</p>
-            <select 
-                className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg focus:ring-2 focus:ring-[#C62828] text-xs"
-                value={mesSeleccionado}
-                onChange={handleMesChange}
-            >
-                <option value="">Selecciona un mes</option>
-                {meses.map(mes => (
-                    <option key={mes.valor} value={mes.valor}>{mes.nombre}</option>
-                ))}
-            </select>
-            {mesSeleccionado && (
-                <button
-                    onClick={handleNotasClick}
-                    className="w-full px-3 py-2 bg-[#C62828] hover:bg-[#B71C1C] text-white rounded-lg transition-colors font-semibold text-xs"
+        <>
+            <div className="space-y-2">
+                <p className="text-xs font-medium text-[#6B7280]">Seleccionar mes:</p>
+                <select 
+                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg focus:ring-2 focus:ring-[#C62828] text-xs"
+                    value={mesSeleccionado}
+                    onChange={handleMesChange}
                 >
-                    Notas
-                </button>
-            )}
-        </div>
+                    <option value="">Selecciona un mes</option>
+                    {meses.map(mes => (
+                        <option key={mes.valor} value={mes.valor}>{mes.nombre}</option>
+                    ))}
+                </select>
+                {mesSeleccionado && (
+                    <button
+                        onClick={handleNotasClick}
+                        className="w-full px-3 py-2 bg-[#C62828] hover:bg-[#B71C1C] text-white rounded-lg transition-colors font-semibold text-xs"
+                    >
+                        Notas
+                    </button>
+                )}
+            </div>
+
+            <Modal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                title="Mes no seleccionado"
+                message="Por favor selecciona un mes antes de continuar."
+                type="warning"
+            />
+        </>
     );
 };
 

@@ -112,6 +112,21 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        'pgsql_olap' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_OLAP_URL'),
+            'host' => env('DB_OLAP_HOST', '127.0.0.1'),
+            'port' => env('DB_OLAP_PORT', '5432'),
+            'database' => env('DB_OLAP_DATABASE', 'academic_olap'),
+            'username' => env('DB_OLAP_USERNAME', 'postgres'),
+            'password' => env('DB_OLAP_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

@@ -4,6 +4,7 @@ import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { Perfil } from './pages/Perfil';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { GradosYSecciones } from './pages/admin/GradosYSecciones';
 import { AsignacionCursos } from './pages/admin/AsignacionCursos';
 import { AsignacionEstudiantes } from './pages/admin/AsignacionEstudiantes';
@@ -16,6 +17,8 @@ import { EstudianteDashboard } from './pages/estudiante/EstudianteDashboard';
 import { MisNotas } from './pages/estudiante/MisNotas';
 import { MisAsistencias } from './pages/estudiante/MisAsistencias';
 import { Matricula } from './pages/estudiante/Matricula';
+import { Analisis } from './pages/Analisis';
+import { Configuracion } from './pages/Configuracion';
 import { useAuthStore } from './stores/authStore';
 
 function App() {
@@ -37,6 +40,22 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/grados-secciones"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <GradosYSecciones />
             </ProtectedRoute>
           }
         />
@@ -137,10 +156,26 @@ function App() {
           }
         />
         <Route
+          path="/analisis"
+          element={
+            <ProtectedRoute allowedRoles={['docente', 'admin']}>
+              <Analisis />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/perfil"
           element={
             <ProtectedRoute>
               <Perfil />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/configuracion"
+          element={
+            <ProtectedRoute>
+              <Configuracion />
             </ProtectedRoute>
           }
         />

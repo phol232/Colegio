@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '../../components/Layout';
+import { Modal } from '../../components/Modal';
 import api from '../../services/api';
 import { getCourseColor } from '../../utils/courseColors';
 
@@ -30,6 +31,17 @@ export const RegistroAsistencia = () => {
     const [asistenciaExistente, setAsistenciaExistente] = useState(false);
     const [busqueda, setBusqueda] = useState('');
     const [filtroNivel, setFiltroNivel] = useState<'todos' | 'primaria' | 'secundaria'>('todos');
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'success' | 'error' | 'warning' | 'info';
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'info'
+    });
 
     useEffect(() => {
         cargarCursosDocente();
@@ -93,7 +105,12 @@ export const RegistroAsistencia = () => {
 
     const guardarAsistencia = async () => {
         if (!cursoSeleccionado || registros.size === 0) {
-            alert('Error al guardar asistencia');
+            setModalConfig({
+                isOpen: true,
+                title: 'Error',
+                message: 'No hay datos para guardar.',
+                type: 'error'
+            });
             return;
         }
 
@@ -110,10 +127,20 @@ export const RegistroAsistencia = () => {
                 registros: registrosArray
             });
 
-            alert('Asistencia guardada exitosamente');
+            setModalConfig({
+                isOpen: true,
+                title: '✓ Asistencia guardada',
+                message: 'La asistencia se ha registrado correctamente.',
+                type: 'success'
+            });
             cerrarModal();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al guardar asistencia');
+            setModalConfig({
+                isOpen: true,
+                title: 'Error al guardar',
+                message: error.response?.data?.message || 'Error al guardar asistencia.',
+                type: 'error'
+            });
         } finally {
             setGuardando(false);
         }
@@ -494,6 +521,15 @@ export const RegistroAsistencia = () => {
                         </div>
                     );
                 })()}
+
+                {/* Modal de notificaciones */}
+                <Modal
+                    isOpen={modalConfig.isOpen}
+                    onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                    title={modalConfig.title}
+                    message={modalConfig.message}
+                    type={modalConfig.type}
+                />
             </div>
         </Layout>
     );

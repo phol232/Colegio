@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '../../components/Layout';
+import { Modal } from '../../components/Modal';
 import api from '../../services/api';
 
 interface CursoCatalogo {
@@ -51,6 +52,18 @@ export const AsignacionCursos = () => {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [modoEdicion, setModoEdicion] = useState(false);
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+        onConfirm?: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'info'
+    });
 
     useEffect(() => {
         cargarDatos();
@@ -124,7 +137,12 @@ export const AsignacionCursos = () => {
     const asignarCursos = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!seccionSeleccionada || !docenteSeleccionado || cursosSeleccionados.length === 0) {
-            alert('Debes seleccionar sección, docente y al menos un curso');
+            setModalConfig({
+                isOpen: true,
+                title: 'Datos incompletos',
+                message: 'Debes seleccionar sección, docente y al menos un curso.',
+                type: 'warning'
+            });
             return;
         }
 
@@ -135,31 +153,57 @@ export const AsignacionCursos = () => {
             });
 
             if (response.data.success) {
-                alert(response.data.message);
+                setModalConfig({
+                    isOpen: true,
+                    title: '✓ Cursos asignados',
+                    message: response.data.message,
+                    type: 'success'
+                });
                 setShowModal(false);
                 setCursosSeleccionados([]);
                 setDocenteSeleccionado(null);
                 cargarCursosAsignados(seccionSeleccionada);
             }
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al asignar cursos');
+            setModalConfig({
+                isOpen: true,
+                title: 'Error al asignar',
+                message: error.response?.data?.message || 'Error al asignar cursos.',
+                type: 'error'
+            });
         }
     };
 
-    const desasignarCurso = async (cursoId: number) => {
-        if (!confirm('¿Estás seguro de desasignar este curso?')) return;
-
-        try {
-            const response = await api.delete(`/admin/cursos-asignados/${cursoId}`);
-            if (response.data.success) {
-                alert('Curso desasignado exitosamente');
-                if (seccionSeleccionada) {
-                    cargarCursosAsignados(seccionSeleccionada);
+    const desasignarCurso = (cursoId: number) => {
+        setModalConfig({
+            isOpen: true,
+            title: 'Confirmar desasignación',
+            message: '¿Estás seguro de desasignar este curso?',
+            type: 'confirm',
+            onConfirm: async () => {
+                try {
+                    const response = await api.delete(`/admin/cursos-asignados/${cursoId}`);
+                    if (response.data.success) {
+                        setModalConfig({
+                            isOpen: true,
+                            title: '✓ Curso desasignado',
+                            message: 'El curso ha sido desasignado exitosamente.',
+                            type: 'success'
+                        });
+                        if (seccionSeleccionada) {
+                            cargarCursosAsignados(seccionSeleccionada);
+                        }
+                    }
+                } catch (error: any) {
+                    setModalConfig({
+                        isOpen: true,
+                        title: 'Error al desasignar',
+                        message: error.response?.data?.message || 'Error al desasignar curso.',
+                        type: 'error'
+                    });
                 }
             }
-        } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al desasignar curso');
-        }
+        });
     };
 
     const toggleCurso = (cursoId: number) => {
@@ -392,6 +436,18 @@ export const AsignacionCursos = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Modal de notificaciones */}
+                <Modal
+                    isOpen={modalConfig.isOpen}
+                    onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                    title={modalConfig.title}
+                    message={modalConfig.message}
+                    type={modalConfig.type}
+                    onConfirm={modalConfig.onConfirm}
+                    confirmText={modalConfig.type === 'confirm' ? 'Confirmar' : 'Aceptar'}
+                    cancelText="Cancelar"
+                />
             </div>
         </Layout>
     );

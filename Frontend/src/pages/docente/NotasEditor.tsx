@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { EvaluacionManager } from '../../components/EvaluacionManager';
 import { GradesTable } from '../../components/GradesTable';
+import { Modal } from '../../components/Modal';
 import { getCourseColor } from '../../utils/courseColors';
 import { calcularPromedioEstudiante } from '../../utils/promedioCalculator';
 import api from '../../services/api';
@@ -73,6 +74,18 @@ export const NotasEditor = () => {
     const [cargandoDatos, setCargandoDatos] = useState(false);
     const [guardando, setGuardando] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'success' | 'error' | 'warning' | 'info';
+        onConfirm?: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'info'
+    });
 
     useEffect(() => {
         cargarDatos();
@@ -123,7 +136,12 @@ export const NotasEditor = () => {
             console.error('Error al cargar datos:', error);
             const errorMsg = error.response?.data?.message || 'Error al cargar los datos';
             setError(errorMsg);
-            alert(errorMsg);
+            setModalConfig({
+                isOpen: true,
+                title: 'Error al cargar datos',
+                message: errorMsg,
+                type: 'error'
+            });
         } finally {
             setLoading(false);
             setCargandoDatos(false);
@@ -175,7 +193,12 @@ export const NotasEditor = () => {
 
     const guardarNotas = async () => {
         if (!curso || notasModificadas.size === 0) {
-            alert(notasModificadas.size === 0 ? 'No hay cambios para guardar.' : 'Error: No hay curso seleccionado');
+            setModalConfig({
+                isOpen: true,
+                title: notasModificadas.size === 0 ? 'Sin cambios' : 'Error',
+                message: notasModificadas.size === 0 ? 'No hay cambios para guardar.' : 'Error: No hay curso seleccionado',
+                type: 'warning'
+            });
             return;
         }
 
@@ -187,7 +210,12 @@ export const NotasEditor = () => {
                 const [estudiante_id, evaluacion_id] = key.split('-').map(Number);
                 
                 if (puntaje < 0 || puntaje > 20) {
-                    alert(`Nota inválida: ${puntaje} (debe estar entre 0 y 20)`);
+                    setModalConfig({
+                        isOpen: true,
+                        title: 'Nota inválida',
+                        message: `La nota ${puntaje} no es válida. Debe estar entre 0 y 20.`,
+                        type: 'error'
+                    });
                     return;
                 }
                 
@@ -196,7 +224,12 @@ export const NotasEditor = () => {
         });
 
         if (notasArray.length === 0) {
-            alert('No hay notas válidas para guardar.');
+            setModalConfig({
+                isOpen: true,
+                title: 'Sin notas válidas',
+                message: 'No hay notas válidas para guardar.',
+                type: 'warning'
+            });
             return;
         }
 
@@ -207,7 +240,12 @@ export const NotasEditor = () => {
             const response = await api.post('/notas-detalle/bulk', { notas: notasArray });
 
             if (response.data.success) {
-                alert(`✓ Notas guardadas exitosamente\n\nRegistradas: ${notasArray.length}`);
+                setModalConfig({
+                    isOpen: true,
+                    title: '✓ Notas guardadas exitosamente',
+                    message: `Se han registrado ${notasArray.length} nota${notasArray.length !== 1 ? 's' : ''} correctamente.`,
+                    type: 'success'
+                });
                 const nuevasOriginales = new Map(notasOriginales);
                 notasArray.forEach(nota => {
                     const key = `${nota.estudiante_id}-${nota.evaluacion_id}`;
@@ -216,14 +254,24 @@ export const NotasEditor = () => {
                 setNotasOriginales(nuevasOriginales);
                 setNotasModificadas(new Set());
             } else {
-                alert(response.data.message || 'Error al guardar notas');
+                setModalConfig({
+                    isOpen: true,
+                    title: 'Error al guardar',
+                    message: response.data.message || 'Error al guardar notas',
+                    type: 'error'
+                });
             }
         } catch (error: any) {
             const errorMsg = error.response?.data?.message ||
                 error.response?.data?.errors?.notas?.[0] ||
                 'Error al guardar notas. Por favor intenta nuevamente.';
             setError(errorMsg);
-            alert(errorMsg);
+            setModalConfig({
+                isOpen: true,
+                title: 'Error al guardar notas',
+                message: errorMsg,
+                type: 'error'
+            });
         } finally {
             setGuardando(false);
         }
@@ -393,6 +441,15 @@ export const NotasEditor = () => {
                     )}
                 </div>
             </div>
+
+            {/* Modal de notificaciones */}
+            <Modal
+                isOpen={modalConfig.isOpen}
+                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                type={modalConfig.type}
+            />
         </Layout>
     );
 };

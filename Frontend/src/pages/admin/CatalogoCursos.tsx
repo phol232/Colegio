@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '../../components/Layout';
+import { Modal } from '../../components/Modal';
 import api from '../../services/api';
 
 interface CursoCatalogo {
@@ -22,6 +23,18 @@ export const CatalogoCursos = () => {
   const [codigo, setCodigo] = useState('');
   const [nivel, setNivel] = useState('ambos');
   const [descripcion, setDescripcion] = useState('');
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info'
+  });
 
   useEffect(() => {
     cargarCursos();
@@ -48,13 +61,23 @@ export const CatalogoCursos = () => {
         : await api.post('/admin/catalogo-cursos', data);
 
       if (response.data.success) {
-        alert(response.data.message);
+        setModalConfig({
+          isOpen: true,
+          title: '✓ Éxito',
+          message: response.data.message,
+          type: 'success'
+        });
         setShowModal(false);
         resetForm();
         cargarCursos();
       }
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Error al guardar curso');
+      setModalConfig({
+        isOpen: true,
+        title: 'Error al guardar',
+        message: error.response?.data?.message || 'Error al guardar curso.',
+        type: 'error'
+      });
     }
   };
 
@@ -68,18 +91,34 @@ export const CatalogoCursos = () => {
     setShowModal(true);
   };
 
-  const eliminarCurso = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar este curso del catálogo?')) return;
-
-    try {
-      const response = await api.delete(`/admin/catalogo-cursos/${id}`);
-      if (response.data.success) {
-        alert('Curso eliminado exitosamente');
-        cargarCursos();
+  const eliminarCurso = (id: number) => {
+    setModalConfig({
+      isOpen: true,
+      title: 'Confirmar eliminación',
+      message: '¿Estás seguro de eliminar este curso del catálogo?',
+      type: 'confirm',
+      onConfirm: async () => {
+        try {
+          const response = await api.delete(`/admin/catalogo-cursos/${id}`);
+          if (response.data.success) {
+            setModalConfig({
+              isOpen: true,
+              title: '✓ Curso eliminado',
+              message: 'El curso ha sido eliminado exitosamente.',
+              type: 'success'
+            });
+            cargarCursos();
+          }
+        } catch (error: any) {
+          setModalConfig({
+            isOpen: true,
+            title: 'Error al eliminar',
+            message: error.response?.data?.message || 'Error al eliminar curso.',
+            type: 'error'
+          });
+        }
       }
-    } catch (error: any) {
-      alert(error.response?.data?.message || 'Error al eliminar curso');
-    }
+    });
   };
 
   const resetForm = () => {
@@ -309,6 +348,18 @@ export const CatalogoCursos = () => {
             </div>
           </div>
         )}
+
+        {/* Modal de notificaciones */}
+        <Modal
+          isOpen={modalConfig.isOpen}
+          onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          type={modalConfig.type}
+          onConfirm={modalConfig.onConfirm}
+          confirmText={modalConfig.type === 'confirm' ? 'Eliminar' : 'Aceptar'}
+          cancelText="Cancelar"
+        />
       </div>
     </Layout>
   );

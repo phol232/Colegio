@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '../../components/Layout';
+import { Modal } from '../../components/Modal';
 import api from '../../services/api';
 
 interface Estudiante {
@@ -34,6 +35,17 @@ export const AsignacionEstudiantes = () => {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [modoEdicion, setModoEdicion] = useState(false);
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'success' | 'error' | 'warning' | 'info';
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'info'
+    });
 
     useEffect(() => {
         cargarDatos();
@@ -84,7 +96,12 @@ export const AsignacionEstudiantes = () => {
     const asignarEstudiantes = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!seccionSeleccionada || estudiantesSeleccionados.length === 0) {
-            alert('Debes seleccionar al menos un estudiante');
+            setModalConfig({
+                isOpen: true,
+                title: 'Datos incompletos',
+                message: 'Debes seleccionar al menos un estudiante.',
+                type: 'warning'
+            });
             return;
         }
 
@@ -94,14 +111,24 @@ export const AsignacionEstudiantes = () => {
             });
 
             if (response.data.success) {
-                alert(response.data.message);
+                setModalConfig({
+                    isOpen: true,
+                    title: '✓ Estudiantes asignados',
+                    message: response.data.message,
+                    type: 'success'
+                });
                 setShowModal(false);
                 setEstudiantesSeleccionados([]);
                 cargarEstudiantesAsignados(seccionSeleccionada);
                 cargarDatos(); // Recargar para actualizar el estado "asignado"
             }
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al asignar estudiantes');
+            setModalConfig({
+                isOpen: true,
+                title: 'Error al asignar',
+                message: error.response?.data?.message || 'Error al asignar estudiantes.',
+                type: 'error'
+            });
         }
     };
 
@@ -370,6 +397,15 @@ export const AsignacionEstudiantes = () => {
             </div>
           </div>
         )}
+
+        {/* Modal de notificaciones */}
+        <Modal
+          isOpen={modalConfig.isOpen}
+          onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          type={modalConfig.type}
+        />
       </div>
     </Layout>
   );

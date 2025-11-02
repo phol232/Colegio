@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Modal } from './Modal';
 
 interface Evaluacion {
     id: number;
@@ -43,6 +44,17 @@ export const GradesTable: React.FC<GradesTableProps> = ({
 }) => {
     const [editando, setEditando] = useState<string | null>(null);
     const [valorTemp, setValorTemp] = useState<string>('');
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'success' | 'error' | 'warning' | 'info';
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'info'
+    });
 
     const getNotaKey = (estudianteId: number, evaluacionId: number) => {
         return `${estudianteId}-${evaluacionId}`;
@@ -60,7 +72,14 @@ export const GradesTable: React.FC<GradesTableProps> = ({
         setValorTemp(nota !== null ? nota.toString() : '');
     };
 
-    const handleGuardar = (estudianteId: number, evaluacionId: number) => {
+    const handleGuardar = (estudianteId: number, evaluacionId: number, forzarCancelar: boolean = false) => {
+        // Si se fuerza cancelar (por blur con valor inválido), simplemente cerrar sin guardar
+        if (forzarCancelar) {
+            setEditando(null);
+            setValorTemp('');
+            return;
+        }
+
         if (valorTemp === '') {
             onNotaChange(estudianteId, evaluacionId, null);
             setEditando(null);
@@ -72,13 +91,27 @@ export const GradesTable: React.FC<GradesTableProps> = ({
 
         // Validar que sea un número válido
         if (isNaN(valor)) {
-            alert('Por favor ingresa un número válido');
+            setModalConfig({
+                isOpen: true,
+                title: 'Valor inválido',
+                message: 'Por favor ingresa un número válido.',
+                type: 'warning'
+            });
+            setEditando(null);
+            setValorTemp('');
             return;
         }
 
         // Validar rango 0-20
         if (valor < 0 || valor > 20) {
-            alert('La nota debe estar entre 0 y 20');
+            setModalConfig({
+                isOpen: true,
+                title: 'Nota fuera de rango',
+                message: 'La nota debe estar entre 0 y 20.',
+                type: 'warning'
+            });
+            setEditando(null);
+            setValorTemp('');
             return;
         }
 
@@ -87,13 +120,47 @@ export const GradesTable: React.FC<GradesTableProps> = ({
         setValorTemp('');
     };
 
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        // Permitir valores vacíos o números (incluyendo decimales)
+        if (value === '' || /^\d*\.?\d*$/.test(value)) {
+            setValorTemp(value);
+        }
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent, estudianteId: number, evaluacionId: number) => {
         if (e.key === 'Enter') {
-            handleGuardar(estudianteId, evaluacionId);
+            e.preventDefault();
+            handleGuardar(estudianteId, evaluacionId, false);
         } else if (e.key === 'Escape') {
+            e.preventDefault();
             setEditando(null);
             setValorTemp('');
         }
+    };
+
+    const handleBlur = (estudianteId: number, evaluacionId: number) => {
+        // Al hacer blur, validar silenciosamente
+        if (valorTemp === '') {
+            onNotaChange(estudianteId, evaluacionId, null);
+            setEditando(null);
+            setValorTemp('');
+            return;
+        }
+
+        const valor = parseFloat(valorTemp);
+        
+        // Si es inválido o fuera de rango, cancelar sin mostrar alert
+        if (isNaN(valor) || valor < 0 || valor > 20) {
+            setEditando(null);
+            setValorTemp('');
+            return;
+        }
+
+        // Si es válido, guardar
+        onNotaChange(estudianteId, evaluacionId, valor);
+        setEditando(null);
+        setValorTemp('');
     };
 
     const getEstadoNota = (puntaje: number | null) => {
@@ -191,15 +258,14 @@ export const GradesTable: React.FC<GradesTableProps> = ({
                                                 >
                                                     {isEditando ? (
                                                         <input
-                                                            type="number"
+                                                            type="text"
+                                                            inputMode="decimal"
                                                             value={valorTemp}
-                                                            onChange={(e) => setValorTemp(e.target.value)}
-                                                            onBlur={() => handleGuardar(estudiante.id, evaluacion.id)}
+                                                            onChange={handleInputChange}
+                                                            onBlur={() => handleBlur(estudiante.id, evaluacion.id)}
                                                             onKeyDown={(e) => handleKeyDown(e, estudiante.id, evaluacion.id)}
-                                                            min="0"
-                                                            max="20"
-                                                            step="0.5"
                                                             autoFocus
+                                                            placeholder="0-20"
                                                             className="w-16 px-2 py-1 border border-[#17A2E5] rounded text-center text-sm focus:ring-2 focus:ring-[#17A2E5]"
                                                         />
                                                     ) : (
@@ -271,6 +337,15 @@ export const GradesTable: React.FC<GradesTableProps> = ({
                     </button>
                 )}
             </div>
+
+            {/* Modal de notificaciones */}
+            <Modal
+                isOpen={modalConfig.isOpen}
+                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                type={modalConfig.type}
+            />
         </div>
     );
 };

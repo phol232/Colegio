@@ -26,14 +26,18 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withSchedule(function (Schedule $schedule) {
-        // ETL: Sincronizar asistencias cada 5 minutos
-        $schedule->job(new \App\Jobs\SincronizarAsistenciaOLAP)->everyFiveMinutes();
+        // ETL: Sincronización completa OLTP → OLAP cada hora
+        $schedule->command('olap:sync')
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer()
+            ->runInBackground();
         
-        // ETL: Sincronizar notas cada 5 minutos
-        $schedule->job(new \App\Jobs\SincronizarNotasOLAP)->everyFiveMinutes();
-        
-        // ETL: Actualizar dimensiones cada hora
-        $schedule->job(new \App\Jobs\ActualizarDimensiones)->hourly();
+        // ETL: Sincronización completa diaria (3:00 AM)
+        $schedule->command('olap:sync --full')
+            ->dailyAt('03:00')
+            ->withoutOverlapping()
+            ->onOneServer();
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

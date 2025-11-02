@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Modal } from './Modal';
 import api from '../services/api';
 
 interface Evaluacion {
@@ -62,6 +63,19 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
         peso: ''
     });
 
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+        onConfirm?: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'info'
+    });
+
     const calcularPesoDisponible = () => {
         const pesoUsado = evaluaciones
             .filter(e => e.id !== editando && e.peso !== null)
@@ -71,12 +85,22 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
 
     const validarFormulario = () => {
         if (!formData.nombre.trim()) {
-            alert('El nombre de la evaluación es requerido');
+            setModalConfig({
+                isOpen: true,
+                title: 'Campo requerido',
+                message: 'El nombre de la evaluación es requerido.',
+                type: 'warning'
+            });
             return false;
         }
 
         if (formData.nombre.trim().length < 3) {
-            alert('El nombre debe tener al menos 3 caracteres');
+            setModalConfig({
+                isOpen: true,
+                title: 'Nombre muy corto',
+                message: 'El nombre debe tener al menos 3 caracteres.',
+                type: 'warning'
+            });
             return false;
         }
 
@@ -87,13 +111,23 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
         if (peso === null) return true;
 
         if (peso < 0 || peso > 100) {
-            alert('El peso debe estar entre 0 y 100%');
+            setModalConfig({
+                isOpen: true,
+                title: 'Peso inválido',
+                message: 'El peso debe estar entre 0 y 100%.',
+                type: 'warning'
+            });
             return false;
         }
 
         const pesoDisponible = calcularPesoDisponible();
         if (peso > pesoDisponible) {
-            alert(`El peso no puede exceder ${pesoDisponible}%. Peso disponible: ${pesoDisponible}%`);
+            setModalConfig({
+                isOpen: true,
+                title: 'Peso excedido',
+                message: `El peso no puede exceder ${pesoDisponible}%.\n\nPeso disponible: ${pesoDisponible}%`,
+                type: 'warning'
+            });
             return false;
         }
 
@@ -102,7 +136,12 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
             .reduce((sum, e) => sum + (e.peso || 0), 0) + peso;
 
         if (pesoTotal > 100) {
-            alert(`La suma de pesos no puede exceder 100%. Total actual: ${pesoTotal}%`);
+            setModalConfig({
+                isOpen: true,
+                title: 'Suma de pesos excedida',
+                message: `La suma de pesos no puede exceder 100%.\n\nTotal actual: ${pesoTotal}%`,
+                type: 'warning'
+            });
             return false;
         }
 
@@ -144,13 +183,23 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
                 }
                 resetForm();
             } else {
-                alert(response.data.message || 'Error al guardar evaluación');
+                setModalConfig({
+                    isOpen: true,
+                    title: 'Error al guardar',
+                    message: response.data.message || 'Error al guardar evaluación.',
+                    type: 'error'
+                });
             }
         } catch (error: any) {
             const errorMessage = error.response?.data?.message ||
                 error.response?.data?.errors?.peso?.[0] ||
                 'Error al guardar evaluación';
-            alert(errorMessage);
+            setModalConfig({
+                isOpen: true,
+                title: 'Error al guardar',
+                message: errorMessage,
+                type: 'error'
+            });
         } finally {
             setGuardando(false);
         }
@@ -166,30 +215,50 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
         setMostrarFormulario(true);
     };
 
-    const handleEliminar = async (evaluacion: Evaluacion) => {
+    const handleEliminar = (evaluacion: Evaluacion) => {
         const tieneNotas = evaluacion.total_notas > 0;
         const mensaje = tieneNotas 
-            ? `⚠️ ADVERTENCIA: Esta evaluación tiene ${evaluacion.total_notas} nota(s) registrada(s).\n\n` +
-              `Al eliminar "${evaluacion.nombre}", se eliminarán TODAS las notas asociadas y se recalcularán los promedios.\n\n` +
-              `¿Estás seguro de que deseas continuar?`
-            : `¿Eliminar la evaluación "${evaluacion.nombre}"?`;
+            ? `⚠️ ADVERTENCIA: Esta evaluación tiene ${evaluacion.total_notas} nota(s) registrada(s).\n\nAl eliminar "${evaluacion.nombre}", se eliminarán TODAS las notas asociadas y se recalcularán los promedios.\n\n¿Estás seguro de que deseas continuar?`
+            : `¿Estás seguro de que deseas eliminar la evaluación "${evaluacion.nombre}"?`;
 
-        if (!confirm(mensaje)) return;
+        setModalConfig({
+            isOpen: true,
+            title: tieneNotas ? '⚠️ Confirmar eliminación' : 'Confirmar eliminación',
+            message: mensaje,
+            type: 'confirm',
+            onConfirm: async () => {
+                try {
+                    const response = await api.delete(`/evaluaciones/${evaluacion.id}`, {
+                        params: { forzar: tieneNotas }
+                    });
 
-        try {
-            const response = await api.delete(`/evaluaciones/${evaluacion.id}`, {
-                params: { forzar: tieneNotas }
-            });
-
-            if (response.data.success) {
-                onEvaluacionDeleted(evaluacion.id);
-            } else {
-                alert(response.data.message || 'Error al eliminar evaluación');
+                    if (response.data.success) {
+                        onEvaluacionDeleted(evaluacion.id);
+                        setModalConfig({
+                            isOpen: true,
+                            title: '✓ Evaluación eliminada',
+                            message: 'La evaluación ha sido eliminada correctamente.',
+                            type: 'success'
+                        });
+                    } else {
+                        setModalConfig({
+                            isOpen: true,
+                            title: 'Error al eliminar',
+                            message: response.data.message || 'Error al eliminar evaluación.',
+                            type: 'error'
+                        });
+                    }
+                } catch (error: any) {
+                    const errorMessage = error.response?.data?.message || 'Error al eliminar evaluación';
+                    setModalConfig({
+                        isOpen: true,
+                        title: 'Error al eliminar',
+                        message: errorMessage,
+                        type: 'error'
+                    });
+                }
             }
-        } catch (error: any) {
-            const errorMessage = error.response?.data?.message || 'Error al eliminar evaluación';
-            alert(errorMessage);
-        }
+        });
     };
 
     const resetForm = () => {
@@ -435,6 +504,18 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
                     </div>
                 </div>
             )}
+
+            {/* Modal de notificaciones */}
+            <Modal
+                isOpen={modalConfig.isOpen}
+                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                type={modalConfig.type}
+                onConfirm={modalConfig.onConfirm}
+                confirmText={modalConfig.type === 'confirm' ? 'Eliminar' : 'Aceptar'}
+                cancelText="Cancelar"
+            />
         </>
     );
 };
