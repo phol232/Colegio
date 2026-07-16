@@ -1,6 +1,9 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api, { ACCOUNT_BLOCKED_STORAGE_KEY } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
+import { ACCOUNT_BLOCKED_MESSAGE, useToastStore } from '../stores/toastStore';
+import { getDashboardPath } from '../utils/dashboardPath';
 
 export const Login = () => {
     const [email, setEmail] = useState('');
@@ -9,9 +12,32 @@ export const Login = () => {
     const [rememberMe, setRememberMe] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [maintenanceActive, setMaintenanceActive] = useState(false);
 
     const navigate = useNavigate();
     const { login } = useAuthStore();
+    const showToast = useToastStore((state) => state.show);
+
+    const showAccountBlockedToast = () => {
+        showToast(ACCOUNT_BLOCKED_MESSAGE, 'error', 2500);
+    };
+
+    useEffect(() => {
+        if (sessionStorage.getItem(ACCOUNT_BLOCKED_STORAGE_KEY)) {
+            sessionStorage.removeItem(ACCOUNT_BLOCKED_STORAGE_KEY);
+            showAccountBlockedToast();
+        }
+    }, []);
+
+    useEffect(() => {
+        api.get('/health/mantenimiento')
+            .then((response) => {
+                setMaintenanceActive(response.data?.data?.modo_mantenimiento === true);
+            })
+            .catch(() => {
+                setMaintenanceActive(false);
+            });
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -20,9 +46,20 @@ export const Login = () => {
 
         try {
             await login(email, password);
-            navigate('/dashboard');
-        } catch (err: any) {
-            setError(err.message);
+            const role = useAuthStore.getState().user?.role;
+            navigate(getDashboardPath(role), { replace: true });
+        } catch (err: unknown) {
+            const error = err as Error & { code?: string };
+            const isBlocked =
+                error.code === 'ACCOUNT_BLOCKED' ||
+                error.message.toLowerCase().includes('bloqueada');
+
+            if (isBlocked) {
+                setError('');
+                showAccountBlockedToast();
+            } else {
+                setError(error.message);
+            }
         } finally {
             setLoading(false);
         }
@@ -40,8 +77,8 @@ export const Login = () => {
             </div>
 
             {/* Lado derecho - Formulario */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-                <div className="w-full max-w-md">
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 bg-[#F4F6F8]">
+                <div className="w-full max-w-md rounded-2xl border-2 border-sidebar-bg bg-white p-8 sm:p-10 shadow-lg shadow-sidebar-bg/10">
                     <div className="text-center mb-8">
                         {/* Logo */}
                         <div className="flex justify-center mb-6">
@@ -51,13 +88,19 @@ export const Login = () => {
                                 className="w-24 h-24 object-contain"
                             />
                         </div>
-                        <h2 className="text-3xl font-bold text-[#0E2B5C] mb-2">
+                        <h2 className="text-3xl font-bold text-sidebar-bg mb-2">
                             Iniciar Sesión
                         </h2>
                         <p className="text-[#6B7280]">
                             Bienvenido de vuelta! Ingresa con tus credenciales
                         </p>
                     </div>
+
+                    {maintenanceActive && (
+                        <div className="mb-4 p-4 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg text-sm">
+                            El sistema está en mantenimiento. Solo los administradores pueden iniciar sesión.
+                        </div>
+                    )}
 
                     {error && (
                         <div className="mb-4 p-4 bg-red-50 border border-[#DC2626] text-[#DC2626] rounded-lg">
@@ -140,9 +183,19 @@ export const Login = () => {
                                     Recordarme
                                 </label>
                             </div>
-                            <Link to="/forgot-password" className="text-sm text-[#17A2E5] hover:underline">
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    showToast(
+                                        'La recuperación de contraseña estará disponible próximamente.',
+                                        'info',
+                                        3500,
+                                    )
+                                }
+                                className="text-sm text-[#17A2E5] hover:underline"
+                            >
                                 ¿Olvidaste tu contraseña?
-                            </Link>
+                            </button>
                         </div>
 
                         {/* Submit button */}
@@ -154,28 +207,6 @@ export const Login = () => {
                             {loading ? 'Iniciando sesión...' : 'INICIAR SESIÓN'}
                         </button>
                     </form>
-
-                    {/* Divider */}
-                    <div className="mt-6">
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-gray-300"></div>
-                            </div>
-                            <div className="relative flex justify-center text-sm">
-                                <span className="px-2 bg-white text-gray-500">o</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Register link */}
-                    <div className="mt-6 text-center">
-                        <p className="text-sm text-[#6B7280]">
-                            ¿No tienes una cuenta?{' '}
-                            <Link to="/register" className="font-medium text-[#17A2E5] hover:underline">
-                                Regístrate
-                            </Link>
-                        </p>
-                    </div>
                 </div>
             </div>
         </div>

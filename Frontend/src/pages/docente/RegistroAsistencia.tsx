@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '../../components/Layout';
+import { Modal } from '../../components/Modal';
 import api from '../../services/api';
 import { getCourseColor } from '../../utils/courseColors';
+import { toId } from '../../utils/ids';
 
 interface Curso {
     id: number;
@@ -30,6 +32,17 @@ export const RegistroAsistencia = () => {
     const [asistenciaExistente, setAsistenciaExistente] = useState(false);
     const [busqueda, setBusqueda] = useState('');
     const [filtroNivel, setFiltroNivel] = useState<'todos' | 'primaria' | 'secundaria'>('todos');
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'success' | 'error' | 'warning' | 'info';
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'info'
+    });
 
     useEffect(() => {
         cargarCursosDocente();
@@ -64,14 +77,14 @@ export const RegistroAsistencia = () => {
                 setAsistenciaExistente(true);
                 const registrosMap = new Map();
                 responseAsist.data.data.forEach((asistencia: any) => {
-                    registrosMap.set(asistencia.estudiante_id, asistencia.estado);
+                    registrosMap.set(toId(asistencia.estudiante_id), asistencia.estado);
                 });
                 setRegistros(registrosMap);
             } else {
                 setAsistenciaExistente(false);
                 const registrosMap = new Map();
                 estudiantesData.forEach((est: Estudiante) => {
-                    registrosMap.set(est.id, 'presente');
+                    registrosMap.set(toId(est.id), 'presente');
                 });
                 setRegistros(registrosMap);
             }
@@ -88,12 +101,17 @@ export const RegistroAsistencia = () => {
     };
 
     const cambiarEstado = (estudianteId: number, estado: 'presente' | 'ausente' | 'tardanza') => {
-        setRegistros(prev => new Map(prev).set(estudianteId, estado));
+        setRegistros(prev => new Map(prev).set(toId(estudianteId), estado));
     };
 
     const guardarAsistencia = async () => {
         if (!cursoSeleccionado || registros.size === 0) {
-            alert('Error al guardar asistencia');
+            setModalConfig({
+                isOpen: true,
+                title: 'Error',
+                message: 'No hay datos para guardar.',
+                type: 'error'
+            });
             return;
         }
 
@@ -110,10 +128,20 @@ export const RegistroAsistencia = () => {
                 registros: registrosArray
             });
 
-            alert('Asistencia guardada exitosamente');
+            setModalConfig({
+                isOpen: true,
+                title: '✓ Asistencia guardada',
+                message: 'La asistencia se ha registrado correctamente.',
+                type: 'success'
+            });
             cerrarModal();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al guardar asistencia');
+            setModalConfig({
+                isOpen: true,
+                title: 'Error al guardar',
+                message: error.response?.data?.message || 'Error al guardar asistencia.',
+                type: 'error'
+            });
         } finally {
             setGuardando(false);
         }
@@ -407,10 +435,11 @@ export const RegistroAsistencia = () => {
                                 {/* Lista de estudiantes */}
                                 <div className="flex-1 overflow-y-auto px-4 py-2 max-h-[50vh]">
                                     {estudiantes.map((estudiante, index) => {
-                                        const estado = registros.get(estudiante.id) || 'presente';
+                                        const estudianteId = toId(estudiante.id);
+                                        const estado = registros.get(estudianteId) || 'presente';
                                         return (
                                             <div
-                                                key={estudiante.id}
+                                                key={estudianteId}
                                                 className="bg-white border border-[#E5E7EB] rounded-lg p-2 mb-2 hover:shadow-md transition-shadow"
                                             >
                                                 <div className="flex items-center justify-between">
@@ -436,7 +465,7 @@ export const RegistroAsistencia = () => {
 
                                                     <div className="flex gap-1.5">
                                                         <button
-                                                            onClick={() => cambiarEstado(estudiante.id, 'presente')}
+                                                            onClick={() => cambiarEstado(estudianteId, 'presente')}
                                                             className={`px-3 py-1.5 rounded-lg transition-colors text-xs font-medium ${estado === 'presente'
                                                                 ? 'bg-[#22C55E] text-white'
                                                                 : 'bg-[#F0FDF4] border border-[#22C55E] text-[#22C55E] hover:bg-[#22C55E] hover:text-white'
@@ -445,7 +474,7 @@ export const RegistroAsistencia = () => {
                                                             ✓ Presente
                                                         </button>
                                                         <button
-                                                            onClick={() => cambiarEstado(estudiante.id, 'tardanza')}
+                                                            onClick={() => cambiarEstado(estudianteId, 'tardanza')}
                                                             className={`px-3 py-1.5 rounded-lg transition-colors text-xs font-medium ${estado === 'tardanza'
                                                                 ? 'bg-[#F59E0B] text-white'
                                                                 : 'bg-[#FFFBEB] border border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B] hover:text-white'
@@ -454,7 +483,7 @@ export const RegistroAsistencia = () => {
                                                             ⏰ Tardanza
                                                         </button>
                                                         <button
-                                                            onClick={() => cambiarEstado(estudiante.id, 'ausente')}
+                                                            onClick={() => cambiarEstado(estudianteId, 'ausente')}
                                                             className={`px-3 py-1.5 rounded-lg transition-colors text-xs font-medium ${estado === 'ausente'
                                                                 ? 'bg-[#DC2626] text-white'
                                                                 : 'bg-[#FEF2F2] border border-[#DC2626] text-[#DC2626] hover:bg-[#DC2626] hover:text-white'
@@ -494,6 +523,15 @@ export const RegistroAsistencia = () => {
                         </div>
                     );
                 })()}
+
+                {/* Modal de notificaciones */}
+                <Modal
+                    isOpen={modalConfig.isOpen}
+                    onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                    title={modalConfig.title}
+                    message={modalConfig.message}
+                    type={modalConfig.type}
+                />
             </div>
         </Layout>
     );

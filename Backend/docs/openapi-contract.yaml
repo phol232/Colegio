@@ -1,0 +1,760 @@
+openapi: 3.0.3
+info:
+  title: Academic Management API
+  version: 1.0.0
+  description: |
+    Contrato HTTP congelado desde Laravel develop (924576f) para migración NestJS.
+    Prefijo: /api. Auth: Bearer token (PostgreSQL auth_tokens, TTL 3h).
+    Envelope estándar: { success, message?, data?, errors? }.
+    Correcciones respecto a Laravel:
+      - GET /auth/me lee usuario del guard (no $request->user roto)
+      - GET /asistencias/estudiante?mes=N usa get_asistencias_estudiante_por_mes
+      - GET/PUT /admin/configuracion implementados
+      - PUT /evaluaciones/reordenar registrado ANTES de /evaluaciones/{id}
+
+servers:
+  - url: /api
+
+tags:
+  - name: auth
+  - name: perfil
+  - name: matricula
+  - name: docente
+  - name: asistencias
+  - name: notas
+  - name: evaluaciones
+  - name: notas-detalle
+  - name: promedios
+  - name: padres
+  - name: analisis
+  - name: admin
+  - name: health
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    ApiSuccess:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string }
+        data: {}
+    ApiError:
+      type: object
+      required: [success, message]
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+    AuthUserData:
+      type: object
+      required: [usuario_id, email, name, role, token]
+      properties:
+        usuario_id: { type: integer }
+        email: { type: string }
+        name: { type: string }
+        role: { type: string, enum: [docente, estudiante, padre, admin] }
+        dni: { type: string, nullable: true }
+        telefono: { type: string, nullable: true }
+        direccion: { type: string, nullable: true }
+        avatar: { type: string, nullable: true }
+        token: { type: string }
+        expires_at: { type: string }
+    ConfiguracionSistema:
+      type: object
+      properties:
+        nombre_institucion: { type: string }
+        anio_academico: { type: integer }
+        periodo_evaluacion: { type: string, enum: [bimestral, trimestral, semestral] }
+        modo_mantenimiento: { type: boolean }
+
+paths:
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Registrar usuario
+      x-throttle: 200/min
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, name, role]
+              properties:
+                email: { type: string }
+                password: { type: string, minLength: 6 }
+                name: { type: string }
+                role: { type: string, enum: [docente, estudiante, padre, admin] }
+                dni: { type: string }
+                telefono: { type: string }
+                direccion: { type: string }
+      responses:
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccess'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AuthUserData' }
+        '422': { description: Validación }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Login
+      x-throttle: 200/min
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: Login OK — data.usuario_id + data.token críticos para Frontend
+        '401': { description: Credenciales inválidas }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Logout OK }
+
+  /auth/me:
+    get:
+      tags: [auth]
+      security: [{ bearerAuth: [] }]
+      summary: Usuario autenticado (CORREGIDO en NestJS)
+      responses:
+        '200':
+          description: '{ success: true, data: { usuario_id, email, name, role, ... } }'
+
+  /perfil:
+    get:
+      tags: [perfil]
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Perfil } }
+    put:
+      tags: [perfil]
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Actualizado } }
+
+  /perfil/cambiar-password:
+    post:
+      tags: [perfil]
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Password cambiado } }
+
+  /matricula/opciones:
+    get:
+      tags: [matricula]
+      security: [{ bearerAuth: [] }]
+      x-roles: [estudiante]
+      responses:
+        '200':
+          description: '{ success, data: [{ grado, secciones }] }'
+
+  /matricula/estado:
+    get:
+      tags: [matricula]
+      security: [{ bearerAuth: [] }]
+      x-roles: [estudiante]
+      responses:
+        '200':
+          description: '{ success, matriculado, info } — sin wrapper data'
+
+  /matricula:
+    post:
+      tags: [matricula]
+      security: [{ bearerAuth: [] }]
+      x-roles: [estudiante]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [grado_id, seccion_id]
+              properties:
+                grado_id: { type: integer }
+                seccion_id: { type: integer }
+      responses:
+        '200':
+          description: '{ success, message, data: { grado, seccion, cursos_asignados } }'
+
+  /docente/cursos:
+    get:
+      tags: [docente]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      responses: { '200': { description: Cursos del docente } }
+
+  /docente/dashboard:
+    get:
+      tags: [docente]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      responses: { '200': { description: Dashboard docente via get_dashboard_docente } }
+
+  /cursos/{cursoId}/estudiantes:
+    get:
+      tags: [docente]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      parameters:
+        - name: cursoId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses: { '200': { description: Estudiantes del curso } }
+
+  /asistencias:
+    get:
+      tags: [asistencias]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Lista paginada } }
+    post:
+      tags: [asistencias]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [curso_id, fecha, registros]
+              properties:
+                curso_id: { type: integer }
+                fecha: { type: string, format: date }
+                registros:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      estudiante_id: { type: integer }
+                      estado: { type: string, enum: [presente, ausente, tardanza] }
+      responses:
+        '201': { description: Registrado }
+
+  /asistencias/{id}:
+    put:
+      tags: [asistencias]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses: { '200': { description: Actualizado } }
+
+  /asistencias/resumen:
+    get:
+      tags: [asistencias]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Resumen } }
+
+  /asistencias/curso/{cursoId}/resumen:
+    get:
+      tags: [asistencias]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Resumen curso } }
+
+  /asistencias/curso/{cursoId}/fecha/{fecha}:
+    get:
+      tags: [asistencias]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Por curso y fecha } }
+
+  /asistencias/estudiante:
+    get:
+      tags: [asistencias]
+      security: [{ bearerAuth: [] }]
+      x-roles: [estudiante]
+      parameters:
+        - name: mes
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 12 }
+          description: CORREGIDO — usa get_asistencias_estudiante_por_mes
+      responses: { '200': { description: Asistencias del estudiante } }
+
+  /asistencias/estudiante/curso/{cursoId}:
+    get:
+      tags: [asistencias]
+      security: [{ bearerAuth: [] }]
+      x-roles: [estudiante]
+      responses: { '200': { description: Detalle por curso } }
+
+  /notas:
+    get:
+      tags: [notas]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Legacy list } }
+    post:
+      tags: [notas]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      responses: { '201': { description: Legacy create via registrar_nota_legacy } }
+
+  /notas/{id}:
+    put:
+      tags: [notas]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      responses: { '200': { description: Legacy update } }
+
+  /notas/resumen:
+    get:
+      tags: [notas]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Resumen } }
+
+  /notas/curso/{cursoId}/unidad/{unidad}:
+    get:
+      tags: [notas]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Por curso/unidad } }
+
+  /notas/estudiante:
+    get:
+      tags: [notas]
+      security: [{ bearerAuth: [] }]
+      x-roles: [estudiante]
+      responses: { '200': { description: get_notas_estudiante } }
+
+  /notas/estudiante/detalladas:
+    get:
+      tags: [notas]
+      security: [{ bearerAuth: [] }]
+      x-roles: [estudiante]
+      responses: { '200': { description: get_notas_detalladas_estudiante } }
+
+  /evaluaciones/reordenar:
+    put:
+      tags: [evaluaciones]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      description: DEBE registrarse ANTES de /evaluaciones/{id}
+      responses: { '200': { description: Reordenado } }
+
+  /evaluaciones:
+    post:
+      tags: [evaluaciones]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [curso_id, mes, nombre, tipo_evaluacion]
+              properties:
+                curso_id: { type: integer }
+                mes: { type: integer, minimum: 3, maximum: 12 }
+                nombre: { type: string }
+                tipo_evaluacion: { type: string }
+                peso: { type: number }
+      responses: { '201': { description: Creada } }
+
+  /evaluaciones/{id}:
+    get:
+      tags: [evaluaciones]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Detalle } }
+    put:
+      tags: [evaluaciones]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      responses: { '200': { description: Actualizada } }
+    delete:
+      tags: [evaluaciones]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      parameters:
+        - name: forzar
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200': { description: Eliminada }
+        '409': { description: requires_confirmation }
+
+  /evaluaciones/curso/{cursoId}:
+    get:
+      tags: [evaluaciones]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Por curso } }
+
+  /evaluaciones/curso/{cursoId}/mes/{mes}:
+    get:
+      tags: [evaluaciones]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Por curso y mes } }
+
+  /notas-detalle:
+    post:
+      tags: [notas-detalle]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      responses: { '201': { description: Creada } }
+
+  /notas-detalle/bulk:
+    post:
+      tags: [notas-detalle]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      responses:
+        '201': { description: Todas OK }
+        '207': { description: Éxito parcial }
+
+  /notas-detalle/{id}:
+    get:
+      tags: [notas-detalle]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Detalle } }
+    put:
+      tags: [notas-detalle]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      responses: { '200': { description: Actualizada } }
+    delete:
+      tags: [notas-detalle]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      responses: { '200': { description: Eliminada } }
+
+  /notas-detalle/evaluacion/{evaluacionId}:
+    get:
+      tags: [notas-detalle]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Por evaluación } }
+
+  /notas-detalle/estudiante/{estudianteId}/curso/{cursoId}/unidad/{unidad}:
+    get:
+      tags: [notas-detalle]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Por estudiante/curso/unidad } }
+
+  /promedios/estudiante/{estudianteId}/curso/{cursoId}:
+    get:
+      tags: [promedios]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Promedios } }
+
+  /promedios/estudiante/{estudianteId}/curso/{cursoId}/unidad/{unidad}:
+    get:
+      tags: [promedios]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Promedio unidad } }
+
+  /promedios/curso/{cursoId}/unidad/{unidad}:
+    get:
+      tags: [promedios]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Promedios curso } }
+
+  /promedios/ranking/curso/{cursoId}/unidad/{unidad}:
+    get:
+      tags: [promedios]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Ranking } }
+
+  /promedios/estadisticas/curso/{cursoId}:
+    get:
+      tags: [promedios]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, estudiante, padre]
+      responses: { '200': { description: Estadísticas } }
+
+  /promedios/recalcular:
+    post:
+      tags: [promedios]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente]
+      responses: { '200': { description: Recalculado } }
+
+  /hijos:
+    get:
+      tags: [padres]
+      security: [{ bearerAuth: [] }]
+      x-roles: [padre]
+      responses: { '200': { description: Hijos } }
+
+  /asistencias/hijo/{id}:
+    get:
+      tags: [padres]
+      security: [{ bearerAuth: [] }]
+      x-roles: [padre]
+      responses: { '200': { description: Asistencias hijo } }
+
+  /notas/hijo/{id}:
+    get:
+      tags: [padres]
+      security: [{ bearerAuth: [] }]
+      x-roles: [padre]
+      responses: { '200': { description: Notas hijo } }
+
+  /hijo/{id}/resumen:
+    get:
+      tags: [padres]
+      security: [{ bearerAuth: [] }]
+      x-roles: [padre]
+      responses: { '200': { description: Resumen hijo } }
+
+  /analisis/rendimiento:
+    get:
+      tags: [analisis]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, admin]
+      responses: { '200': { description: OLAP } }
+
+  /analisis/curso/{id}:
+    get:
+      tags: [analisis]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, admin]
+      responses: { '200': { description: OLAP curso } }
+
+  /analisis/estudiante/{id}:
+    get:
+      tags: [analisis]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, admin]
+      responses: { '200': { description: OLAP estudiante } }
+
+  /analisis/estadisticas:
+    get:
+      tags: [analisis]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, admin]
+      responses: { '200': { description: Estadísticas generales } }
+
+  /analisis/ranking/curso/{id}:
+    get:
+      tags: [analisis]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, admin]
+      responses: { '200': { description: Ranking } }
+
+  /analisis/comparativa:
+    get:
+      tags: [analisis]
+      security: [{ bearerAuth: [] }]
+      x-roles: [docente, admin]
+      responses: { '200': { description: Comparativa } }
+
+  /admin/estadisticas:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: Stats admin } }
+
+  /admin/secciones-info:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: Info secciones } }
+
+  /admin/configuracion:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      summary: NUEVO — configuración del sistema
+      responses: { '200': { description: Config } }
+    put:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      summary: NUEVO — requerido por Frontend Configuracion.tsx
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConfiguracionSistema' }
+      responses: { '200': { description: Actualizada } }
+
+  /admin/grados:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: listar_grados } }
+    post:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '201': { description: crear_grado } }
+
+  /admin/grados/{id}:
+    put:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: actualizar_grado } }
+    delete:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: eliminar_grado } }
+
+  /admin/grados/{gradoId}/secciones:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: listar_secciones_grado } }
+    post:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '201': { description: crear_seccion } }
+
+  /admin/secciones/{id}:
+    put:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: actualizar_seccion } }
+    delete:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: eliminar_seccion } }
+
+  /admin/cursos/{cursoId}/estudiantes:
+    post:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: Asignar estudiante a curso } }
+
+  /admin/estudiantes:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: listar_todos_estudiantes } }
+
+  /admin/estudiantes/disponibles:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: listar_estudiantes_disponibles } }
+
+  /admin/docentes:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: Lista docentes } }
+
+  /admin/secciones/{seccionId}/estudiantes:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: listar_estudiantes_seccion } }
+
+  /admin/secciones/{seccionId}/asignar-estudiantes:
+    post:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: asignar_estudiantes_seccion } }
+
+  /admin/catalogo-cursos:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: listar_catalogo_cursos } }
+    post:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '201': { description: crear_curso_catalogo } }
+
+  /admin/catalogo-cursos/{id}:
+    put:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: actualizar_curso_catalogo } }
+    delete:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: eliminar_curso_catalogo } }
+
+  /admin/secciones/{seccionId}/asignar-cursos:
+    post:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: asignar_cursos_seccion } }
+
+  /admin/secciones/{seccionId}/cursos-asignados:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: listar_cursos_seccion } }
+
+  /admin/cursos-asignados/{cursoId}:
+    delete:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: desasignar_curso_seccion } }
+
+  /admin/cursos-asignados/{cursoId}/docente:
+    put:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses: { '200': { description: actualizar_docente_curso } }
+
+  /health:
+    get:
+      tags: [health]
+      summary: Health check OLTP + OLAP + Redis
+      responses:
+        '200':
+          description: '{ status, timestamp, service, version, checks }'
+        '503':
+          description: Unhealthy

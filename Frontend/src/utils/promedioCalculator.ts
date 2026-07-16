@@ -1,10 +1,12 @@
+import { sameId, type ApiId } from './ids';
+
 interface Evaluacion {
-    id: number;
+    id: ApiId;
     peso: number | null;
 }
 
 interface NotaEstudiante {
-    evaluacionId: number;
+    evaluacionId: ApiId;
     puntaje: number;
 }
 
@@ -73,8 +75,8 @@ export const calcularPromedioEstudiante = (
     notasEstudiante: NotaEstudiante[]
 ): PromedioResult => {
     // Filtrar solo las notas que tienen evaluación
-    const notasValidas = notasEstudiante.filter(nota => 
-        evaluaciones.some(e => e.id === nota.evaluacionId)
+    const notasValidas = notasEstudiante.filter(nota =>
+        evaluaciones.some(e => sameId(e.id, nota.evaluacionId))
     );
     
     if (notasValidas.length === 0) {
@@ -91,7 +93,7 @@ export const calcularPromedioEstudiante = (
     if (validarPesos(evaluaciones)) {
         // Promedio ponderado
         const notasConPeso = notasValidas.map(nota => {
-            const evaluacion = evaluaciones.find(e => e.id === nota.evaluacionId);
+            const evaluacion = evaluaciones.find(e => sameId(e.id, nota.evaluacionId));
             return {
                 puntaje: nota.puntaje,
                 peso: evaluacion?.peso || 0

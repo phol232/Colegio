@@ -1,226 +1,118 @@
 # Academic Management System
 
-Sistema de gestión académica con arquitectura de tres capas: React frontend, Laravel API, y PostgreSQL con dos bases de datos (OLTP + OLAP).
+Sistema de gestión académica: React frontend, NestJS API (TypeScript por capas) y PostgreSQL dual (OLTP + OLAP), con Redis para caché y colas.
 
 ## Arquitectura
 
 ### Servicios Docker
 
-- **nginx**: Reverse proxy para Laravel API y React frontend
-- **app**: Laravel 11 con PHP 8.2-FPM
-- **postgres**: PostgreSQL 16 con **DOS bases de datos**:
-  - `academic_oltp`: Base de datos transaccional (OLTP)
-  - `academic_olap`: Base de datos analítica con esquema estrella (OLAP)
-- **pgbouncer**: Connection pooler para optimizar conexiones a PostgreSQL
-- **redis**: Cache, queue y session storage
+| Servicio | Rol |
+|----------|-----|
+| `nginx` | Reverse proxy del stack local; producción usa Traefik |
+| `frontend` | React SPA local; en producción se despliega en Vercel |
+| `backend-api` | NestJS HTTP (`/api`) |
+| `backend-worker` | BullMQ consumer ETL OLAP |
+| `backend-scheduler` | Cron: incremental cada hora, full 03:00 |
+| `postgres` | PostgreSQL 16 local; producción reutiliza el contenedor `citas-db` |
+| `db-init` | Aplica esquema SQL OLTP/OLAP (una vez) |
+| `pgbouncer` | Pool de conexiones (OLTP + OLAP) |
+| `redis-cache` | Caché / throttle (LRU) |
+| `redis-queue` | BullMQ + locks (`noeviction` + AOF) |
 
-### Bases de Datos
+### Backend NestJS
 
-#### OLTP (academic_oltp)
-Base de datos normalizada para operaciones transaccionales:
-- `usuarios`: Usuarios del sistema (docentes, estudiantes, padres)
-- `cursos`: Cursos académicos
-- `estudiantes_cursos`: Relación estudiantes-cursos
-- `asistencias`: Registro de asistencia diaria
-- `notas`: Calificaciones por unidad
-- `padres_estudiantes`: Relación padres-hijos
+Capas por módulo: `presentation` → `application` → `domain` → `infrastructure`.
 
-#### OLAP (academic_olap)
-Base de datos con esquema estrella para análisis:
-- **Dimensiones**: `dim_estudiante`, `dim_curso`, `dim_tiempo`, `dim_docente`
-- **Hechos**: `fact_rendimiento_estudiantil`
-- **Control**: `control_etl`
+La lógica de negocio vive en TypeORM (`Backend/src/`). PostgreSQL conserva solo esquema y constraints.
+
+Contrato HTTP: [`Backend/docs/openapi-contract.yaml`](Backend/docs/openapi-contract.yaml)
 
 ## Instalación
 
 ### Requisitos
+
 - Docker y Docker Compose
-- Git
+- Node.js 20+ (desarrollo local opcional)
 
 ### Pasos
 
-1. **Clonar el repositorio**
-```bash
-git clone <repository-url>
-cd academic-management-system
-```
+1. **Clonar y configurar**
 
-2. **Configurar variables de entorno**
 ```bash
 cp .env.example .env
-# Editar .env con tu configuración
+# Editar DB_PASSWORD y demás secretos
 ```
 
-3. **Inicializar el sistema**
-```bash
-chmod +x init.sh
-./init.sh
-```
-
-O manualmente:
+2. **Levantar stack completo**
 
 ```bash
-# Construir contenedores
-docker-compose build
-
-# Iniciar servicios
-docker-compose up -d
-
-# Generar key de Laravel
-docker-compose exec app php artisan key:generate
-
-# Ejecutar migraciones OLTP
-docker-compose exec app php artisan migrate --database=pgsql
-
-# Ejecutar migraciones OLAP
-docker-compose exec app php artisan migrate --database=olap --path=database/migrations/olap
-
-# Seed (opcional)
-docker-compose exec app php artisan db:seed
-
-# Iniciar queue workers
-docker-compose exec -d app php artisan queue:work redis --tries=3
+docker compose up -d --build
 ```
 
-## Acceso
+El servicio `db-init` aplica automáticamente el esquema SQL en la primera ejecución. Asegúrate de que `DB_PASSWORD` en `.env` coincida con la contraseña del volumen de Postgres (si cambiaste la clave, recrea volúmenes con `docker compose down -v`).
 
-- **API Backend**: http://localhost/api
-- **Frontend**: http://localhost:8080
-- **PostgreSQL**: localhost:5432
-  - Database OLTP: `academic_oltp`
-  - Database OLAP: `academic_olap`
-- **PgBouncer**: localhost:6432
-- **Redis**: localhost:6379
+3. **Verificar**
 
-## Comandos Útiles
-
-```bash
-# Ver logs
-docker-compose logs -f
-
-# Ver logs de un servicio específico
-docker-compose logs -f app
-
-# Detener servicios
-docker-compose down
-
-# Reiniciar un servicio
-docker-compose restart app
-
-# Ejecutar comandos artisan
-docker-compose exec app php artisan <command>
-
-# Acceder a PostgreSQL
-docker-compose exec postgres psql -U academic -d academic_oltp
-
-# Acceder a Redis CLI
-docker-compose exec redis redis-cli
-
-# Limpiar cache
-docker-compose exec app php artisan cache:clear
-docker-compose exec app php artisan config:clear
-docker-compose exec app php artisan route:clear
-```
-
-## Desarrollo
-
-### Backend (Laravel)
-```bash
-cd Backend
-composer install
-php artisan migrate
-php artisan serve
-```
-
-### Frontend (React)
-```bash
-cd Frontend
-npm install
-npm run dev
-```
-
-## Testing
-
-```bash
-# Tests backend
-docker-compose exec app php artisan test
-
-# Tests con coverage
-docker-compose exec app php artisan test --coverage
-
-# Tests específicos
-docker-compose exec app php artisan test --filter=AsistenciaTest
-```
-
-## Performance
-
-El sistema está optimizado para:
-- 50 usuarios concurrentes
-- Tiempo de respuesta < 1 segundo para operaciones CRUD
-- Latencia API: 120-180ms promedio
-- Cache hit rate > 80%
-
-### Configuración de Performance
-- PHP-FPM: 40 workers
-- PgBouncer: 50 conexiones pool
-- PostgreSQL: shared_buffers=2GB, effective_cache_size=6GB
-- Redis: 500MB maxmemory
-
-## Seguridad
-
-- HTTPS obligatorio en producción
-- Google OAuth para autenticación
-- Sanctum tokens con expiración de 24 horas
-- Rate limiting: 100 req/min por usuario
-- Login rate limiting: 5 intentos/min
-- CORS configurado
-- Variables sensibles en .env
-
-## Backup
-
-```bash
-# Backup OLTP
-docker-compose exec postgres pg_dump -U academic academic_oltp > backup_oltp_$(date +%Y%m%d).sql
-
-# Backup OLAP
-docker-compose exec postgres pg_dump -U academic academic_olap > backup_olap_$(date +%Y%m%d).sql
-
-# Restaurar
-docker-compose exec -T postgres psql -U academic academic_oltp < backup_oltp.sql
-```
-
-## Monitoreo
-
-### Health Check
 ```bash
 curl http://localhost/api/health
 ```
 
-### Métricas
-- Logs: `docker-compose logs`
-- PostgreSQL stats: Conectar y ejecutar queries de pg_stat_*
-- Redis info: `docker-compose exec redis redis-cli info`
+### Producción
 
-## Troubleshooting
+El frontend se despliega por separado en Vercel. El archivo
+`docker-compose.prod.yml` levanta únicamente la API y sus servicios internos;
+reutiliza `citas-db:5440` mediante la red externa
+`plataformareservas-reservas-p5sdl3_citas-net`. No crea otro PostgreSQL y
+PgBouncer y Redis no publican puertos en el host.
 
-### PostgreSQL no inicia
+Antes del primer despliegue deben existir en `citas-db` el rol `academic` y las
+bases `academic_oltp` y `academic_olap`. `DB_PASSWORD` debe coincidir con la
+contraseña de ese rol.
+
 ```bash
-docker-compose down -v
-docker-compose up -d postgres
-docker-compose logs postgres
+cp .env.example .env
+# Configurar DB_PASSWORD, APP_URL y CORS_ORIGIN
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml exec backend-api \
+  wget -qO- http://localhost:3000/api/health
 ```
 
-### Migraciones fallan
+En Dokploy, configura el dominio `apicolegio.optrix.cloud` sobre el servicio
+`backend-api`, puerto interno `3000`, y activa HTTPS con Let's Encrypt. Dokploy
+se encarga de inyectar las etiquetas Traefik y conectar su red. En Vercel,
+configura
+`VITE_API_URL=https://apicolegio.optrix.cloud/api`.
+
+### Desarrollo local del Backend
+
 ```bash
-docker-compose exec app php artisan migrate:fresh
+cd Backend
+cp .env.example .env
+# Ajustar hosts a localhost / puertos publicados
+corepack enable
+pnpm install
+pnpm run start:dev          # API
+pnpm run start:worker:dev   # Worker
+pnpm run start:scheduler:dev
 ```
 
-### Cache issues
-```bash
-docker-compose exec app php artisan cache:clear
-docker-compose exec redis redis-cli FLUSHALL
-```
+## API
+
+- Prefijo: `/api`
+- Auth: `Authorization: Bearer <token>`
+- Roles: `docente`, `estudiante`, `padre`, `admin`
+- Docs Swagger (dev): `/api/docs`
+
+### Correcciones respecto a Laravel
+
+- `GET /auth/me` devuelve el usuario del guard
+- `GET /asistencias/estudiante?mes=` usa `get_asistencias_estudiante_por_mes`
+- `GET/PUT /admin/configuracion` implementados
+
+## CI
+
+Workflow: [`.github/workflows/backend-ci.yml`](.github/workflows/backend-ci.yml) — typecheck, tests, build.
 
 ## Licencia
 
-[Tu licencia aquí]
+Proyecto académico / privado.

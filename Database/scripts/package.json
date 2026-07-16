@@ -1,0 +1,13 @@
+{
+  "name": "colegio-database-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "apply:oltp": "node apply-sql.mjs --oltp",
+    "apply:olap": "node apply-sql.mjs --olap",
+    "apply:all": "node apply-sql.mjs --oltp --olap"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

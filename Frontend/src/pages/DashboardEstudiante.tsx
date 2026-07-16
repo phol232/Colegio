@@ -25,7 +25,7 @@ export const DashboardEstudiante = () => {
               <p className="text-xs text-gray-500">{user?.email}</p>
             </div>
             <button
-              onClick={logout}
+              onClick={() => logout()}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
               Cerrar Sesión
