@@ -17,6 +17,7 @@
     "start:scheduler": "node dist/scheduler.main.js",
     "start:worker:dev": "tsx watch src/worker.main.ts",
     "start:scheduler:dev": "tsx watch src/scheduler.main.ts",
+    "create:admin": "tsx src/scripts/create-admin.ts",
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "typecheck": "tsc --noEmit",
     "test": "jest",
