@@ -10,9 +10,8 @@ export interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, role: string) => Promise<void>;
-  logout: () => void;
+    login: (email: string, password: string) => Promise<void>;
+    logout: (options?: { redirect?: string | false }) => void;
   setUser: (user: User, token: string) => void;
 }
 

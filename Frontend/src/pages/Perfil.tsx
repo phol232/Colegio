@@ -1,32 +1,61 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { User, Mail, Shield, Lock, Camera, CheckCircle2, AlertCircle, ImagePlus, Trash2 } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { useAuthStore } from '../stores/authStore';
 import api from '../services/api';
+import { AVATAR_ACCEPT, AVATAR_MAX_SIZE_BYTES, fileToBase64DataUrl, formatFileSize } from '../utils/avatarUpload';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+
+const roleLabels: Record<string, string> = {
+    admin: 'Administrador',
+    docente: 'Docente',
+    estudiante: 'Estudiante',
+    padre: 'Padre de familia',
+};
+
+const tipoDocumentoOptions = [
+    { value: 'dni', label: 'DNI' },
+    { value: 'ce', label: 'Carné de extranjería' },
+    { value: 'pasaporte', label: 'Pasaporte' },
+];
 
 export const Perfil = () => {
     const { user, setUser } = useAuthStore();
+    const avatarInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(true);
     const [guardando, setGuardando] = useState(false);
+    const [subiendoAvatar, setSubiendoAvatar] = useState(false);
     const [mostrarCambiarPassword, setMostrarCambiarPassword] = useState(false);
+    const [tipoDocumento, setTipoDocumento] = useState('dni');
+    const [fechaRegistro, setFechaRegistro] = useState<string | null>(null);
 
-    // Datos del perfil
     const [perfil, setPerfil] = useState({
         name: '',
         email: '',
         dni: '',
         telefono: '',
         direccion: '',
-        avatar: ''
+        avatar: '',
     });
 
-    // Datos para cambiar contraseña
     const [passwords, setPasswords] = useState({
         current_password: '',
         new_password: '',
-        new_password_confirmation: ''
+        new_password_confirmation: '',
     });
 
-    const [mensaje, setMensaje] = useState<{ tipo: 'success' | 'error', texto: string } | null>(null);
+    const [mensaje, setMensaje] = useState<{ tipo: 'success' | 'error'; texto: string } | null>(null);
 
     useEffect(() => {
         cargarPerfil();
@@ -36,17 +65,26 @@ export const Perfil = () => {
         try {
             const response = await api.get('/perfil');
             if (response.data.success) {
+                const data = response.data.data;
                 setPerfil({
-                    name: response.data.data.name || '',
-                    email: response.data.data.email || '',
-                    dni: response.data.data.dni || '',
-                    telefono: response.data.data.telefono || '',
-                    direccion: response.data.data.direccion || '',
-                    avatar: response.data.data.avatar || ''
+                    name: data.name || '',
+                    email: data.email || '',
+                    dni: data.dni || '',
+                    telefono: data.telefono || '',
+                    direccion: data.direccion || '',
+                    avatar: data.avatar || '',
                 });
+                if (data.created_at) {
+                    setFechaRegistro(
+                        new Date(data.created_at).toLocaleDateString('es-PE', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                        }),
+                    );
+                }
             }
-        } catch (error: any) {
-            console.error('Error al cargar perfil:', error);
+        } catch {
             mostrarMensaje('error', 'Error al cargar los datos del perfil');
         } finally {
             setLoading(false);
@@ -59,32 +97,27 @@ export const Perfil = () => {
         setMensaje(null);
 
         try {
-            const response = await api.put('/perfil', perfil);
+            const response = await api.put('/perfil', {
+                ...perfil,
+                avatar: perfil.avatar.trim() || null,
+            });
             if (response.data.success) {
                 mostrarMensaje('success', 'Perfil actualizado exitosamente');
 
-                // Actualizar el usuario en el store con los nuevos datos
                 const updatedUser = {
                     id: user!.id,
                     name: response.data.data.name,
                     email: response.data.data.email,
                     role: user!.role,
-                    avatar: response.data.data.avatar
+                    avatar: response.data.data.avatar,
                 };
 
-                // Obtener el token actual
                 const token = localStorage.getItem('token') || '';
-
-                // Actualizar el store (esto también actualiza localStorage)
                 setUser(updatedUser, token);
-
-                // Esperar un momento y recargar para que se vea el cambio
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
             }
-        } catch (error: any) {
-            mostrarMensaje('error', error.response?.data?.message || 'Error al actualizar el perfil');
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            mostrarMensaje('error', err.response?.data?.message || 'Error al actualizar el perfil');
         } finally {
             setGuardando(false);
         }
@@ -108,12 +141,13 @@ export const Perfil = () => {
                 setPasswords({
                     current_password: '',
                     new_password: '',
-                    new_password_confirmation: ''
+                    new_password_confirmation: '',
                 });
                 setMostrarCambiarPassword(false);
             }
-        } catch (error: any) {
-            mostrarMensaje('error', error.response?.data?.message || 'Error al cambiar la contraseña');
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            mostrarMensaje('error', err.response?.data?.message || 'Error al cambiar la contraseña');
         } finally {
             setGuardando(false);
         }
@@ -124,11 +158,34 @@ export const Perfil = () => {
         setTimeout(() => setMensaje(null), 5000);
     };
 
+    const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setSubiendoAvatar(true);
+        try {
+            const dataUrl = await fileToBase64DataUrl(file);
+            setPerfil((prev) => ({ ...prev, avatar: dataUrl }));
+            mostrarMensaje('success', 'Foto cargada. Pulsa "Guardar cambios" para aplicarla.');
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Error al cargar la imagen';
+            mostrarMensaje('error', msg);
+        } finally {
+            setSubiendoAvatar(false);
+            e.target.value = '';
+        }
+    };
+
+    const quitarAvatar = () => {
+        setPerfil((prev) => ({ ...prev, avatar: '' }));
+        mostrarMensaje('success', 'Foto eliminada. Guarda los cambios para confirmar.');
+    };
+
     if (loading) {
         return (
             <Layout>
-                <div className="flex items-center justify-center h-screen">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="flex h-[60vh] items-center justify-center">
+                    <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-sidebar-bg" />
                 </div>
             </Layout>
         );
@@ -136,230 +193,301 @@ export const Perfil = () => {
 
     return (
         <Layout>
-            <div className="p-8">
-                {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Mi Perfil</h1>
-                    <p className="text-gray-600 mt-1">Administra tu información personal</p>
-                </div>
-
-                {/* Mensaje de éxito/error */}
-                {mensaje && (
-                    <div className={`mb-6 p-4 rounded-lg ${mensaje.tipo === 'success'
-                        ? 'bg-green-50 border border-green-200 text-green-800'
-                        : 'bg-red-50 border border-red-200 text-red-800'
-                        }`}>
-                        {mensaje.texto}
+            <div className="flex justify-center px-4 py-8 md:px-6">
+                <div className="w-full max-w-5xl">
+                    <div className="mb-8 text-center">
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Mi Perfil</h1>
+                        <p className="mt-2 text-sm text-slate-500 md:text-base">
+                            Administra tu información personal y la seguridad de tu cuenta
+                        </p>
                     </div>
-                )}
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Información del usuario */}
-                    <div className="lg:col-span-1">
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <div className="text-center">
-                                {perfil.avatar ? (
-                                    <img
-                                        src={perfil.avatar}
-                                        alt={user?.name}
-                                        className="w-24 h-24 rounded-full mx-auto mb-4 object-cover border-4 border-blue-100"
-                                        onError={(e) => {
-                                            // Si la imagen falla, mostrar inicial
-                                            e.currentTarget.style.display = 'none';
-                                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                        }}
-                                    />
-                                ) : null}
-                                <div className={`w-24 h-24 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-3xl mx-auto mb-4 ${perfil.avatar ? 'hidden' : ''}`}>
-                                    {user?.name.charAt(0).toUpperCase()}
-                                </div>
-                                <h2 className="text-xl font-bold text-gray-900">{user?.name}</h2>
-                                <p className="text-sm text-gray-600 capitalize mt-1">{user?.role}</p>
-                                <p className="text-sm text-gray-500 mt-2">{user?.email}</p>
-                            </div>
+                    {mensaje && (
+                        <div
+                            className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${
+                                mensaje.tipo === 'success'
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                    : 'border-red-200 bg-red-50 text-red-800'
+                            }`}
+                        >
+                            {mensaje.tipo === 'success' ? (
+                                <CheckCircle2 className="h-5 w-5 shrink-0" />
+                            ) : (
+                                <AlertCircle className="h-5 w-5 shrink-0" />
+                            )}
+                            {mensaje.texto}
                         </div>
-                    </div>
+                    )}
 
-                    {/* Formulario de edición */}
-                    <div className="lg:col-span-2">
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-6">Información Personal</h3>
-
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Nombre Completo
-                                    </label>
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+                        {/* Columna izquierda — resumen + seguridad */}
+                        <div className="space-y-6 lg:col-span-2">
+                            <Card className="overflow-hidden">
+                                <div className="bg-slate-50 px-6 py-8 text-center">
                                     <input
-                                        type="text"
-                                        value={perfil.name}
-                                        onChange={(e) => setPerfil({ ...perfil, name: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        required
+                                        ref={avatarInputRef}
+                                        type="file"
+                                        accept={AVATAR_ACCEPT}
+                                        className="hidden"
+                                        onChange={handleAvatarFileChange}
                                     />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Correo Electrónico
-                                    </label>
-                                    <input
-                                        type="email"
-                                        value={perfil.email}
-                                        onChange={(e) => setPerfil({ ...perfil, email: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        required
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            DNI
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={perfil.dni}
-                                            onChange={(e) => setPerfil({ ...perfil, dni: e.target.value })}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            maxLength={20}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Teléfono
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={perfil.telefono}
-                                            onChange={(e) => setPerfil({ ...perfil, telefono: e.target.value })}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            maxLength={20}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Dirección
-                                    </label>
-                                    <textarea
-                                        value={perfil.direccion}
-                                        onChange={(e) => setPerfil({ ...perfil, direccion: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        rows={3}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Avatar (URL de imagen)
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={perfil.avatar}
-                                        onChange={(e) => setPerfil({ ...perfil, avatar: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        placeholder="https://ejemplo.com/mi-foto.jpg"
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Ingresa la URL de tu foto de perfil
-                                    </p>
-                                    {perfil.avatar && (
-                                        <div className="mt-2">
-                                            <p className="text-xs text-gray-600 mb-1">Vista previa:</p>
+                                    <div className="relative mx-auto mb-4 h-28 w-28">
+                                        {perfil.avatar ? (
                                             <img
                                                 src={perfil.avatar}
-                                                alt="Vista previa"
-                                                className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
-                                                onError={(e) => {
-                                                    e.currentTarget.src = '';
-                                                    e.currentTarget.alt = 'Error al cargar imagen';
-                                                }}
+                                                alt={perfil.name}
+                                                className="h-28 w-28 rounded-full border-4 border-white object-cover shadow-md"
                                             />
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex justify-end pt-4">
-                                    <button
-                                        type="submit"
-                                        disabled={guardando}
-                                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                    >
-                                        {guardando ? 'Guardando...' : 'Guardar Cambios'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-
-                        {/* Sección de cambiar contraseña */}
-                        <div className="bg-white rounded-lg shadow p-6 mt-6">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900">Seguridad</h3>
-                                <button
-                                    onClick={() => setMostrarCambiarPassword(!mostrarCambiarPassword)}
-                                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                                >
-                                    {mostrarCambiarPassword ? 'Cancelar' : 'Cambiar Contraseña'}
-                                </button>
-                            </div>
-
-                            {mostrarCambiarPassword && (
-                                <form onSubmit={handleCambiarPassword} className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Contraseña Actual
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={passwords.current_password}
-                                            onChange={(e) => setPasswords({ ...passwords, current_password: e.target.value })}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Nueva Contraseña
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={passwords.new_password}
-                                            onChange={(e) => setPasswords({ ...passwords, new_password: e.target.value })}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            required
-                                            minLength={6}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Confirmar Nueva Contraseña
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={passwords.new_password_confirmation}
-                                            onChange={(e) => setPasswords({ ...passwords, new_password_confirmation: e.target.value })}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            required
-                                            minLength={6}
-                                        />
-                                    </div>
-
-                                    <div className="flex justify-end pt-4">
+                                        ) : (
+                                            <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-sidebar-bg text-4xl font-bold text-white shadow-md">
+                                                {perfil.name.charAt(0).toUpperCase() || 'U'}
+                                            </div>
+                                        )}
                                         <button
-                                            type="submit"
-                                            disabled={guardando}
-                                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                            type="button"
+                                            onClick={() => avatarInputRef.current?.click()}
+                                            disabled={subiendoAvatar}
+                                            className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-sidebar-bg text-white shadow transition-colors hover:bg-sidebar-hover disabled:opacity-60"
+                                            title="Cambiar foto"
                                         >
-                                            {guardando ? 'Actualizando...' : 'Actualizar Contraseña'}
+                                            <Camera className="h-4 w-4" />
                                         </button>
                                     </div>
-                                </form>
-                            )}
+                                    <h2 className="text-xl font-semibold text-slate-900">{perfil.name || user?.name}</h2>
+                                    <p className="mt-1 text-sm text-slate-500">{perfil.email || user?.email}</p>
+
+                                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={subiendoAvatar}
+                                            onClick={() => avatarInputRef.current?.click()}
+                                        >
+                                            <ImagePlus className="h-4 w-4" />
+                                            {subiendoAvatar ? 'Cargando...' : 'Subir foto'}
+                                        </Button>
+                                        {perfil.avatar && (
+                                            <Button type="button" variant="ghost" size="sm" onClick={quitarAvatar}>
+                                                <Trash2 className="h-4 w-4" />
+                                                Quitar
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <p className="mt-2 text-xs text-slate-400">
+                                        JPG, PNG, WebP o GIF · máximo {formatFileSize(AVATAR_MAX_SIZE_BYTES)}
+                                    </p>
+                                </div>
+
+                                <CardContent className="space-y-5 pt-6">
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-2 text-slate-600">
+                                            <Shield className="h-4 w-4" />
+                                            Rol en el sistema
+                                        </Label>
+                                        <Select value={user?.role ?? ''} disabled>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Rol" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {Object.entries(roleLabels).map(([value, label]) => (
+                                                    <SelectItem key={value} value={value}>
+                                                        {label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-slate-400">El rol solo puede ser modificado por un administrador.</p>
+                                    </div>
+
+                                    {fechaRegistro && (
+                                        <div className="rounded-lg border border-slate-100 bg-slate-50/80 px-4 py-3">
+                                            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Miembro desde</p>
+                                            <p className="mt-1 text-sm font-medium text-slate-700">{fechaRegistro}</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                        <div>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <Lock className="h-5 w-5 text-sidebar-bg" />
+                                                Seguridad
+                                            </CardTitle>
+                                            <CardDescription className="mt-1.5">
+                                                Protege tu cuenta actualizando tu contraseña periódicamente.
+                                            </CardDescription>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant={mostrarCambiarPassword ? 'outline' : 'default'}
+                                            size="sm"
+                                            className="shrink-0"
+                                            onClick={() => setMostrarCambiarPassword(!mostrarCambiarPassword)}
+                                        >
+                                            {mostrarCambiarPassword ? (
+                                                'Cancelar'
+                                            ) : (
+                                                <>
+                                                    <Lock className="h-4 w-4" />
+                                                    Cambiar contraseña
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+
+                                {mostrarCambiarPassword && (
+                                    <CardContent className="border-t border-slate-100 pt-5">
+                                        <form id="password-form" onSubmit={handleCambiarPassword} className="space-y-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="current_password">Contraseña actual</Label>
+                                                <Input
+                                                    id="current_password"
+                                                    type="password"
+                                                    value={passwords.current_password}
+                                                    onChange={(e) =>
+                                                        setPasswords({ ...passwords, current_password: e.target.value })
+                                                    }
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="new_password">Nueva contraseña</Label>
+                                                    <Input
+                                                        id="new_password"
+                                                        type="password"
+                                                        value={passwords.new_password}
+                                                        onChange={(e) =>
+                                                            setPasswords({ ...passwords, new_password: e.target.value })
+                                                        }
+                                                        required
+                                                        minLength={6}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="new_password_confirmation">Confirmar contraseña</Label>
+                                                    <Input
+                                                        id="new_password_confirmation"
+                                                        type="password"
+                                                        value={passwords.new_password_confirmation}
+                                                        onChange={(e) =>
+                                                            setPasswords({
+                                                                ...passwords,
+                                                                new_password_confirmation: e.target.value,
+                                                            })
+                                                        }
+                                                        required
+                                                        minLength={6}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <Button type="submit" className="w-full" disabled={guardando}>
+                                                {guardando ? 'Actualizando...' : 'Actualizar contraseña'}
+                                            </Button>
+                                        </form>
+                                    </CardContent>
+                                )}
+                            </Card>
+                        </div>
+
+                        {/* Columna derecha — información personal */}
+                        <div className="lg:col-span-3">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <User className="h-5 w-5 text-sidebar-bg" />
+                                        Información personal
+                                    </CardTitle>
+                                    <CardDescription>Actualiza tus datos de contacto y perfil público.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <form id="perfil-form" onSubmit={handleSubmit} className="space-y-5">
+                                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                            <div className="space-y-2 sm:col-span-2">
+                                                <Label htmlFor="name">Nombre completo</Label>
+                                                <Input
+                                                    id="name"
+                                                    value={perfil.name}
+                                                    onChange={(e) => setPerfil({ ...perfil, name: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2 sm:col-span-2">
+                                                <Label htmlFor="email" className="flex items-center gap-2">
+                                                    <Mail className="h-4 w-4 text-slate-400" />
+                                                    Correo electrónico
+                                                </Label>
+                                                <Input
+                                                    id="email"
+                                                    type="email"
+                                                    value={perfil.email}
+                                                    onChange={(e) => setPerfil({ ...perfil, email: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Tipo de documento</Label>
+                                                <Select value={tipoDocumento} onValueChange={setTipoDocumento}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Seleccionar tipo" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {tipoDocumentoOptions.map((opt) => (
+                                                            <SelectItem key={opt.value} value={opt.value}>
+                                                                {opt.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="dni">Número de documento</Label>
+                                                <Input
+                                                    id="dni"
+                                                    value={perfil.dni}
+                                                    onChange={(e) => setPerfil({ ...perfil, dni: e.target.value })}
+                                                    maxLength={20}
+                                                    placeholder="Ej: 12345678"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2 sm:col-span-2">
+                                                <Label htmlFor="telefono">Teléfono</Label>
+                                                <Input
+                                                    id="telefono"
+                                                    value={perfil.telefono}
+                                                    onChange={(e) => setPerfil({ ...perfil, telefono: e.target.value })}
+                                                    maxLength={20}
+                                                    placeholder="Ej: 999 888 777"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2 sm:col-span-2">
+                                                <Label htmlFor="direccion">Dirección</Label>
+                                                <Textarea
+                                                    id="direccion"
+                                                    value={perfil.direccion}
+                                                    onChange={(e) => setPerfil({ ...perfil, direccion: e.target.value })}
+                                                    placeholder="Tu dirección de residencia"
+                                                />
+                                            </div>
+                                        </div>
+                                    </form>
+                                </CardContent>
+                                <CardFooter className="justify-end">
+                                    <Button type="submit" form="perfil-form" disabled={guardando}>
+                                        {guardando ? 'Guardando...' : 'Guardar cambios'}
+                                    </Button>
+                                </CardFooter>
+                            </Card>
                         </div>
                     </div>
                 </div>

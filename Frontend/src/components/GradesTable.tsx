@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal } from './Modal';
+import { toId } from '../utils/ids';
 
 interface Evaluacion {
     id: number;
@@ -218,11 +219,12 @@ export const GradesTable: React.FC<GradesTableProps> = ({
                         </thead>
                         <tbody className="bg-white divide-y divide-[#E5E7EB]">
                             {estudiantes.map((estudiante, index) => {
-                                const promedio = promedios.get(estudiante.id);
+                                const estudianteId = toId(estudiante.id);
+                                const promedio = promedios.get(estudianteId);
                                 const estadoPromedio = promedio ? getEstadoPromedio(promedio.promedio_numerico) : null;
 
                                 return (
-                                    <tr key={estudiante.id} className="hover:bg-[#F9FAFB]">
+                                    <tr key={estudianteId} className="hover:bg-[#F9FAFB]">
                                         <td className="sticky left-0 z-10 bg-white px-3 py-2 text-xs text-[#6B7280] border-r border-[#E5E7EB]">
                                             {index + 1}
                                         </td>
@@ -245,16 +247,17 @@ export const GradesTable: React.FC<GradesTableProps> = ({
                                             </div>
                                         </td>
                                         {evaluaciones.map((evaluacion) => {
-                                            const nota = getNota(estudiante.id, evaluacion.id);
-                                            const key = getNotaKey(estudiante.id, evaluacion.id);
+                                            const evaluacionId = toId(evaluacion.id);
+                                            const nota = getNota(estudianteId, evaluacionId);
+                                            const key = getNotaKey(estudianteId, evaluacionId);
                                             const estado = getEstadoNota(nota);
                                             const isEditando = editando === key;
 
                                             return (
                                                 <td
-                                                    key={evaluacion.id}
+                                                    key={evaluacionId}
                                                     className={`px-3 py-2 text-center ${estado.bg}`}
-                                                    onClick={() => !isEditando && handleCeldaClick(estudiante.id, evaluacion.id)}
+                                                    onClick={() => !isEditando && handleCeldaClick(estudianteId, evaluacionId)}
                                                 >
                                                     {isEditando ? (
                                                         <input
@@ -262,8 +265,8 @@ export const GradesTable: React.FC<GradesTableProps> = ({
                                                             inputMode="decimal"
                                                             value={valorTemp}
                                                             onChange={handleInputChange}
-                                                            onBlur={() => handleBlur(estudiante.id, evaluacion.id)}
-                                                            onKeyDown={(e) => handleKeyDown(e, estudiante.id, evaluacion.id)}
+                                                            onBlur={() => handleBlur(estudianteId, evaluacionId)}
+                                                            onKeyDown={(e) => handleKeyDown(e, estudianteId, evaluacionId)}
                                                             autoFocus
                                                             placeholder="0-20"
                                                             className="w-16 px-2 py-1 border border-[#17A2E5] rounded text-center text-sm focus:ring-2 focus:ring-[#17A2E5]"

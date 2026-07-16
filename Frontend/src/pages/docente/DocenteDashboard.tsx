@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { useAuthStore } from '../../stores/authStore';
 import { getCourseColor } from '../../utils/courseColors';
+import { sameId } from '../../utils/ids';
 import api from '../../services/api';
 
 interface Curso {
@@ -200,7 +201,7 @@ export const DocenteDashboard = () => {
                                     <div className="space-y-4">
                                         {cursos.slice(0, 4).map((curso) => {
                                             const courseColor = getCourseColor(curso.nombre);
-                                            const estadistica = estadisticasCursos.find(e => e.curso_id === curso.id);
+                                            const estadistica = estadisticasCursos.find(e => sameId(e.curso_id, curso.id));
 
                                             return (
                                                 <div key={curso.id} className="flex items-center justify-between p-4 bg-[#F5F7FA] rounded-lg hover:shadow-md transition-shadow cursor-pointer"

@@ -15,6 +15,7 @@ CREATE TABLE usuarios (
     google_id VARCHAR(255) UNIQUE,
     password VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL CHECK (role IN ('docente', 'estudiante', 'padre', 'admin')),
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
     avatar TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -26,6 +27,7 @@ CREATE INDEX idx_usuarios_dni ON usuarios(dni);
 
 COMMENT ON TABLE usuarios IS 'Usuarios del sistema con diferentes roles';
 COMMENT ON COLUMN usuarios.role IS 'Rol del usuario: docente, estudiante, padre, admin';
+COMMENT ON COLUMN usuarios.activo IS 'Si es false, la cuenta está bloqueada y no puede iniciar sesión';
 COMMENT ON COLUMN usuarios.google_id IS 'ID de Google OAuth (nullable para login manual)';
 
 -- ============================================

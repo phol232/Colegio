@@ -1,13 +1,34 @@
 import { useState, useEffect } from 'react';
+import {
+    Settings,
+    User,
+    Palette,
+    Globe,
+    Building2,
+    Type,
+} from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { Modal } from '../components/Modal';
 import api from '../services/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 interface Usuario {
     id: number;
     name: string;
     email: string;
     role: string;
+    avatar?: string | null;
 }
 
 interface ConfiguracionSistema {
@@ -17,24 +38,76 @@ interface ConfiguracionSistema {
     modo_mantenimiento: boolean;
 }
 
+const roleLabels: Record<string, string> = {
+    admin: 'Administrador',
+    docente: 'Docente',
+    estudiante: 'Estudiante',
+    padre: 'Padre de familia',
+};
+
+const idiomaOptions = [
+    { value: 'es', label: 'Español' },
+    { value: 'en', label: 'English' },
+    { value: 'fr', label: 'Français' },
+];
+
+const tamanoFuenteOptions = [
+    { value: 'pequeno', label: 'Pequeño' },
+    { value: 'mediano', label: 'Mediano' },
+    { value: 'grande', label: 'Grande' },
+];
+
+const periodoOptions = [
+    { value: 'bimestral', label: 'Bimestral' },
+    { value: 'trimestral', label: 'Trimestral' },
+    { value: 'semestral', label: 'Semestral' },
+];
+
+interface ToggleRowProps {
+    id: string;
+    title: string;
+    description: string;
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+}
+
+const ToggleRow = ({ id, title, description, checked, onChange }: ToggleRowProps) => (
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-3">
+        <div>
+            <p className="text-sm font-medium text-slate-900">{title}</p>
+            <p className="text-xs text-slate-500">{description}</p>
+        </div>
+        <label htmlFor={id} className="relative inline-flex shrink-0 cursor-pointer items-center">
+            <input
+                id={id}
+                type="checkbox"
+                checked={checked}
+                onChange={(e) => onChange(e.target.checked)}
+                className="peer sr-only"
+            />
+            <div className="h-6 w-11 rounded-full bg-slate-200 transition-colors peer-checked:bg-sidebar-bg peer-focus-visible:ring-2 peer-focus-visible:ring-sidebar-bg peer-focus-visible:ring-offset-2 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all peer-checked:after:translate-x-5" />
+        </label>
+    </div>
+);
+
 export const Configuracion = () => {
     const [usuario, setUsuario] = useState<Usuario | null>(null);
     const [loading, setLoading] = useState(true);
-    
-    // Configuración del sistema (solo admin)
+    const [guardandoSistema, setGuardandoSistema] = useState(false);
+
     const [configSistema, setConfigSistema] = useState<ConfiguracionSistema>({
         nombre_institucion: 'Colegio Frederick',
         anio_academico: 2025,
         periodo_evaluacion: 'trimestral',
-        modo_mantenimiento: false
+        modo_mantenimiento: false,
     });
 
-    // Preferencias de la aplicación
     const [modoOscuro, setModoOscuro] = useState(false);
     const [idioma, setIdioma] = useState('es');
     const [notificaciones, setNotificaciones] = useState(true);
+    const [notificacionesEmail, setNotificacionesEmail] = useState(true);
     const [tamanoFuente, setTamanoFuente] = useState('mediano');
-    
+
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean;
         title: string;
@@ -44,24 +117,24 @@ export const Configuracion = () => {
         isOpen: false,
         title: '',
         message: '',
-        type: 'info'
+        type: 'info',
     });
 
     useEffect(() => {
         cargarDatos();
-        
-        // Cargar preferencias desde localStorage
+
         const modoOscuroGuardado = localStorage.getItem('modoOscuro') === 'true';
         const idiomaGuardado = localStorage.getItem('idioma') || 'es';
         const notificacionesGuardadas = localStorage.getItem('notificaciones') !== 'false';
+        const emailNotif = localStorage.getItem('email_notifications') !== 'false';
         const tamanoFuenteGuardado = localStorage.getItem('tamanoFuente') || 'mediano';
-        
+
         setModoOscuro(modoOscuroGuardado);
         setIdioma(idiomaGuardado);
         setNotificaciones(notificacionesGuardadas);
+        setNotificacionesEmail(emailNotif);
         setTamanoFuente(tamanoFuenteGuardado);
-        
-        // Aplicar modo oscuro si está guardado
+
         if (modoOscuroGuardado) {
             document.documentElement.classList.add('dark');
         }
@@ -70,17 +143,33 @@ export const Configuracion = () => {
     const cargarDatos = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/perfil/');
+            const response = await api.get('/perfil');
             const userData = response.data.data;
-            
             setUsuario(userData);
-            
-        } catch (error: any) {
+
+            if (userData.role === 'admin') {
+                try {
+                    const configRes = await api.get('/admin/configuracion');
+                    if (configRes.data.success && configRes.data.data) {
+                        const d = configRes.data.data;
+                        setConfigSistema({
+                            nombre_institucion: d.nombre_institucion ?? 'Colegio Frederick',
+                            anio_academico: Number(d.anio_academico) || new Date().getFullYear(),
+                            periodo_evaluacion: d.periodo_evaluacion ?? 'trimestral',
+                            modo_mantenimiento: Boolean(d.modo_mantenimiento),
+                        });
+                    }
+                } catch {
+                    // Usar valores por defecto si no hay configuración
+                }
+            }
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
             setModalConfig({
                 isOpen: true,
                 title: 'Error',
-                message: error.response?.data?.message || 'Error al cargar datos',
-                type: 'error'
+                message: err.response?.data?.message || 'Error al cargar datos',
+                type: 'error',
             });
         } finally {
             setLoading(false);
@@ -89,77 +178,90 @@ export const Configuracion = () => {
 
     const handleActualizarSistema = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+        setGuardandoSistema(true);
         try {
-            await api.put('/admin/configuracion', configSistema);
-
+            await api.put('/admin/configuracion', {
+                nombre_institucion: configSistema.nombre_institucion,
+                anio_academico: configSistema.anio_academico,
+                periodo_evaluacion: configSistema.periodo_evaluacion,
+                modo_mantenimiento: configSistema.modo_mantenimiento,
+            });
             setModalConfig({
                 isOpen: true,
-                title: 'Éxito',
-                message: 'Configuración del sistema actualizada',
-                type: 'success'
+                title: 'Configuración actualizada',
+                message: 'Los ajustes del sistema se guardaron correctamente.',
+                type: 'success',
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
             setModalConfig({
                 isOpen: true,
                 title: 'Error',
-                message: error.response?.data?.message || 'Error al actualizar configuración',
-                type: 'error'
+                message: err.response?.data?.message || 'Error al actualizar configuración',
+                type: 'error',
             });
+        } finally {
+            setGuardandoSistema(false);
         }
     };
 
     const handleCambiarModoOscuro = (activado: boolean) => {
         setModoOscuro(activado);
+        localStorage.setItem('modoOscuro', activado ? 'true' : 'false');
         localStorage.setItem('tema', activado ? 'oscuro' : 'claro');
-        
-        // Aplicar cambio inmediato
+
         const html = document.documentElement;
         const body = document.body;
-        
+
         if (activado) {
-            // Modo oscuro
             html.style.backgroundColor = '#0f172a';
             body.style.backgroundColor = '#0f172a';
             body.style.color = '#e2e8f0';
         } else {
-            // Modo claro
-            html.style.backgroundColor = '#F4F6F8';
-            body.style.backgroundColor = '#F4F6F8';
-            body.style.color = '#1e293b';
+            html.style.backgroundColor = '';
+            body.style.backgroundColor = '';
+            body.style.color = '';
         }
 
         setModalConfig({
             isOpen: true,
-            title: '✓ Preferencia Guardada',
-            message: `Modo ${activado ? '🌙 Oscuro' : '☀️ Claro'} activado correctamente`,
-            type: 'success'
+            title: 'Preferencia guardada',
+            message: `Modo ${activado ? 'oscuro' : 'claro'} activado.`,
+            type: 'success',
         });
     };
 
     const handleCambiarIdioma = (nuevoIdioma: string) => {
         setIdioma(nuevoIdioma);
         localStorage.setItem('idioma', nuevoIdioma);
-
-        const nombreIdioma = nuevoIdioma === 'es' ? '🇪🇸 Español' : nuevoIdioma === 'en' ? '🇺🇸 English' : '🇫🇷 Français';
-
+        const label = idiomaOptions.find((o) => o.value === nuevoIdioma)?.label ?? nuevoIdioma;
         setModalConfig({
             isOpen: true,
-            title: '✓ Idioma Configurado',
-            message: `Idioma cambiado a ${nombreIdioma}. Se aplicará en la próxima actualización del sistema.`,
-            type: 'success'
+            title: 'Idioma configurado',
+            message: `Idioma cambiado a ${label}. Se aplicará en la próxima actualización.`,
+            type: 'success',
         });
     };
 
     const handleCambiarNotificaciones = (activado: boolean) => {
         setNotificaciones(activado);
         localStorage.setItem('notificaciones', activado ? 'true' : 'false');
-
         setModalConfig({
             isOpen: true,
-            title: 'Preferencia Guardada',
-            message: `Notificaciones ${activado ? 'activadas' : 'desactivadas'}`,
-            type: 'info'
+            title: 'Preferencia guardada',
+            message: `Notificaciones ${activado ? 'activadas' : 'desactivadas'}.`,
+            type: 'info',
+        });
+    };
+
+    const handleCambiarNotificacionesEmail = (activado: boolean) => {
+        setNotificacionesEmail(activado);
+        localStorage.setItem('email_notifications', activado ? 'true' : 'false');
+        setModalConfig({
+            isOpen: true,
+            title: 'Preferencia guardada',
+            message: `Notificaciones por email ${activado ? 'activadas' : 'desactivadas'}.`,
+            type: 'success',
         });
     };
 
@@ -167,7 +269,6 @@ export const Configuracion = () => {
         setTamanoFuente(tamano);
         localStorage.setItem('tamanoFuente', tamano);
 
-        // Aplicar tamaño de fuente
         const root = document.documentElement;
         switch (tamano) {
             case 'pequeno':
@@ -180,28 +281,20 @@ export const Configuracion = () => {
                 root.style.fontSize = '16px';
         }
 
+        const label = tamanoFuenteOptions.find((o) => o.value === tamano)?.label ?? tamano;
         setModalConfig({
             isOpen: true,
-            title: 'Preferencia Guardada',
-            message: `Tamaño de fuente: ${tamano}`,
-            type: 'success'
+            title: 'Preferencia guardada',
+            message: `Tamaño de fuente: ${label}.`,
+            type: 'success',
         });
-    };
-
-    const getRoleLabel = (role: string) => {
-        const roles: Record<string, string> = {
-            admin: 'Administrador',
-            docente: 'Docente',
-            estudiante: 'Estudiante'
-        };
-        return roles[role] || role;
     };
 
     if (loading) {
         return (
             <Layout>
-                <div className="flex items-center justify-center h-screen">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="flex h-[60vh] items-center justify-center">
+                    <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-sidebar-bg" />
                 </div>
             </Layout>
         );
@@ -209,374 +302,268 @@ export const Configuracion = () => {
 
     return (
         <Layout>
-            <div className="min-h-screen bg-[#F4F6F8]">
-                {/* Header */}
-                <div className="bg-white border-b border-[#E5E7EB] shadow-sm">
-                    <div className="max-w-[1200px] mx-auto px-6 py-4">
-                        <h1 className="text-2xl font-bold text-[#0E2B5C]">⚙️ Configuración</h1>
-                        <p className="text-sm text-[#6B7280] mt-1">Gestiona tu perfil y preferencias</p>
+            <div className="flex justify-center px-4 py-8 md:px-6">
+                <div className="w-full max-w-5xl">
+                    <div className="mb-8 text-center">
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+                            Configuración
+                        </h1>
+                        <p className="mt-2 text-sm text-slate-500 md:text-base">
+                            Personaliza tu experiencia y ajustes del sistema
+                        </p>
                     </div>
-                </div>
 
-                {/* Contenido */}
-                <div className="max-w-[1200px] mx-auto p-6 space-y-6">
-                    {/* Información del Usuario */}
-                    <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
-                                {usuario?.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold text-[#0E2B5C]">{usuario?.name}</h2>
-                                <p className="text-sm text-[#6B7280]">{usuario?.email}</p>
-                                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-medium ${
-                                    usuario?.role === 'admin' 
-                                        ? 'bg-purple-100 text-purple-800' 
-                                        : usuario?.role === 'docente'
-                                        ? 'bg-blue-100 text-blue-800'
-                                        : 'bg-green-100 text-green-800'
-                                }`}>
-                                    {getRoleLabel(usuario?.role || '')}
-                                </span>
-                            </div>
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+                        {/* Cuenta */}
+                        <div className="lg:col-span-2">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <User className="h-5 w-5 text-sidebar-bg" />
+                                        Tu cuenta
+                                    </CardTitle>
+                                    <CardDescription>Información de la sesión actual</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="flex items-center gap-4">
+                                        {usuario?.avatar ? (
+                                            <img
+                                                src={usuario.avatar}
+                                                alt={usuario.name}
+                                                className="h-16 w-16 rounded-full border-2 border-slate-200 object-cover"
+                                            />
+                                        ) : (
+                                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-sidebar-bg text-xl font-bold text-white">
+                                                {usuario?.name.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                        <div className="min-w-0">
+                                            <p className="truncate font-semibold text-slate-900">{usuario?.name}</p>
+                                            <p className="truncate text-sm text-slate-500">{usuario?.email}</p>
+                                            <span className="mt-2 inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                                                {roleLabels[usuario?.role ?? ''] ?? usuario?.role}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
-                    </div>
 
-                    {/* Preferencias de Apariencia */}
-                    <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6">
-                        <h3 className="text-lg font-semibold text-[#0E2B5C] mb-4">🎨 Apariencia</h3>
-                        <div className="space-y-4">
-                            {/* Modo Oscuro */}
-                            <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <div>
-                                    <p className="text-sm font-medium text-[#0E2B5C]">Modo Oscuro</p>
-                                    <p className="text-xs text-[#6B7280]">Cambia la apariencia de la aplicación</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
+                        {/* Apariencia */}
+                        <div className="lg:col-span-3">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Palette className="h-5 w-5 text-sidebar-bg" />
+                                        Apariencia
+                                    </CardTitle>
+                                    <CardDescription>Ajusta el aspecto visual de la aplicación</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <ToggleRow
+                                        id="modo-oscuro"
+                                        title="Modo oscuro"
+                                        description="Cambia la apariencia de la interfaz"
                                         checked={modoOscuro}
-                                        onChange={(e) => handleCambiarModoOscuro(e.target.checked)}
-                                        className="sr-only peer"
+                                        onChange={handleCambiarModoOscuro}
                                     />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                            </div>
 
-                            {/* Tamaño de Fuente */}
-                            <div className="py-3 px-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <p className="text-sm font-medium text-[#0E2B5C] mb-3">Tamaño de Fuente</p>
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => handleCambiarTamanoFuente('pequeno')}
-                                        className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all ${
-                                            tamanoFuente === 'pequeno'
-                                                ? 'border-blue-600 bg-blue-50 text-blue-700 font-semibold'
-                                                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400'
-                                        }`}
-                                    >
-                                        <span className="text-xs">Pequeño</span>
-                                    </button>
-                                    <button
-                                        onClick={() => handleCambiarTamanoFuente('mediano')}
-                                        className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all ${
-                                            tamanoFuente === 'mediano'
-                                                ? 'border-blue-600 bg-blue-50 text-blue-700 font-semibold'
-                                                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400'
-                                        }`}
-                                    >
-                                        <span className="text-sm">Mediano</span>
-                                    </button>
-                                    <button
-                                        onClick={() => handleCambiarTamanoFuente('grande')}
-                                        className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all ${
-                                            tamanoFuente === 'grande'
-                                                ? 'border-blue-600 bg-blue-50 text-blue-700 font-semibold'
-                                                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400'
-                                        }`}
-                                    >
-                                        <span className="text-base">Grande</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Preferencias de Idioma y Notificaciones */}
-                    <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6">
-                        <h3 className="text-lg font-semibold text-[#0E2B5C] mb-4">🌍 Idioma y Notificaciones</h3>
-                        <div className="space-y-4">
-                            {/* Idioma */}
-                            <div className="py-3 px-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <p className="text-sm font-medium text-[#0E2B5C] mb-3">Idioma de la Aplicación</p>
-                                <div className="grid grid-cols-3 gap-3">
-                                    <button
-                                        onClick={() => handleCambiarIdioma('es')}
-                                        className={`px-4 py-2 rounded-lg border-2 transition-all ${
-                                            idioma === 'es'
-                                                ? 'border-blue-600 bg-blue-50 text-blue-700 font-semibold'
-                                                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400'
-                                        }`}
-                                    >
-                                        🇪🇸 Español
-                                    </button>
-                                    <button
-                                        onClick={() => handleCambiarIdioma('en')}
-                                        className={`px-4 py-2 rounded-lg border-2 transition-all ${
-                                            idioma === 'en'
-                                                ? 'border-blue-600 bg-blue-50 text-blue-700 font-semibold'
-                                                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400'
-                                        }`}
-                                    >
-                                        🇺🇸 English
-                                    </button>
-                                    <button
-                                        onClick={() => handleCambiarIdioma('fr')}
-                                        className={`px-4 py-2 rounded-lg border-2 transition-all ${
-                                            idioma === 'fr'
-                                                ? 'border-blue-600 bg-blue-50 text-blue-700 font-semibold'
-                                                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400'
-                                        }`}
-                                    >
-                                        🇫🇷 Français
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Notificaciones */}
-                            <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <div>
-                                    <p className="text-sm font-medium text-[#0E2B5C]">Notificaciones Push</p>
-                                    <p className="text-xs text-[#6B7280]">Recibe alertas sobre actividades importantes</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={notificaciones}
-                                        onChange={(e) => handleCambiarNotificaciones(e.target.checked)}
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                                </label>
-                            </div>
-
-                            {/* Notificaciones por Email */}
-                            <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <div>
-                                    <p className="text-sm font-medium text-[#0E2B5C]">Notificaciones por Email</p>
-                                    <p className="text-xs text-[#6B7280]">Recibe resúmenes diarios por correo electrónico</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        defaultChecked={true}
-                                        onChange={(e) => {
-                                            localStorage.setItem('email_notifications', e.target.checked ? 'true' : 'false');
-                                            setModalConfig({
-                                                isOpen: true,
-                                                title: '✓ Preferencia Guardada',
-                                                message: `Notificaciones por email ${e.target.checked ? 'activadas' : 'desactivadas'}`,
-                                                type: 'success'
-                                            });
-                                        }}
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Configuración Avanzada */}
-                    <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6">
-                        <h3 className="text-lg font-semibold text-[#0E2B5C] mb-4">⚡ Configuración Avanzada</h3>
-                        <div className="space-y-4">
-                            {/* Auto-guardado */}
-                            <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <div>
-                                    <p className="text-sm font-medium text-[#0E2B5C]">Auto-guardado</p>
-                                    <p className="text-xs text-[#6B7280]">Guarda automáticamente tus cambios</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        defaultChecked={true}
-                                        onChange={(e) => {
-                                            localStorage.setItem('auto_save', e.target.checked ? 'true' : 'false');
-                                            setModalConfig({
-                                                isOpen: true,
-                                                title: '✓ Preferencia Guardada',
-                                                message: `Auto-guardado ${e.target.checked ? 'activado' : 'desactivado'}`,
-                                                type: 'info'
-                                            });
-                                        }}
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                </label>
-                            </div>
-
-                            {/* Animaciones */}
-                            <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <div>
-                                    <p className="text-sm font-medium text-[#0E2B5C]">Animaciones</p>
-                                    <p className="text-xs text-[#6B7280]">Activa/desactiva las transiciones visuales</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        defaultChecked={true}
-                                        onChange={(e) => {
-                                            localStorage.setItem('animations', e.target.checked ? 'true' : 'false');
-                                            document.documentElement.style.setProperty(
-                                                '--animation-duration',
-                                                e.target.checked ? '0.3s' : '0s'
-                                            );
-                                            setModalConfig({
-                                                isOpen: true,
-                                                title: '✓ Preferencia Guardada',
-                                                message: `Animaciones ${e.target.checked ? 'activadas' : 'desactivadas'}`,
-                                                type: 'info'
-                                            });
-                                        }}
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                </label>
-                            </div>
-
-                            {/* Limpiar Caché */}
-                            <div className="py-3 px-4 bg-orange-50 rounded-lg border border-orange-200">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-orange-900">Limpiar Caché Local</p>
-                                        <p className="text-xs text-orange-700">Borra datos temporales para liberar espacio</p>
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-3">
+                                        <div className="mb-3 flex items-center gap-2">
+                                            <Type className="h-4 w-4 text-slate-500" />
+                                            <p className="text-sm font-medium text-slate-900">Tamaño de fuente</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {tamanoFuenteOptions.map((opt) => (
+                                                <button
+                                                    key={opt.value}
+                                                    type="button"
+                                                    onClick={() => handleCambiarTamanoFuente(opt.value)}
+                                                    className={cn(
+                                                        'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                                                        tamanoFuente === opt.value
+                                                            ? 'border-sidebar-bg bg-sidebar-bg text-white'
+                                                            : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
+                                                    )}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <button
-                                        onClick={() => {
-                                            // Guardar datos importantes antes de limpiar
-                                            const tema = localStorage.getItem('tema');
-                                            const idioma = localStorage.getItem('idioma');
-                                            const token = localStorage.getItem('token');
-                                            
-                                            // Limpiar todo
-                                            localStorage.clear();
-                                            
-                                            // Restaurar datos importantes
-                                            if (tema) localStorage.setItem('tema', tema);
-                                            if (idioma) localStorage.setItem('idioma', idioma);
-                                            if (token) localStorage.setItem('token', token);
-                                            
-                                            setModalConfig({
-                                                isOpen: true,
-                                                title: '✓ Caché Limpiado',
-                                                message: 'Se han eliminado los datos temporales',
-                                                type: 'success'
-                                            });
-                                        }}
-                                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
-                                    >
-                                        🗑️ Limpiar
-                                    </button>
-                                </div>
-                            </div>
+                                </CardContent>
+                            </Card>
                         </div>
-                    </div>
 
-                    {/* Configuración del Sistema (Solo Admin) */}
-                    {usuario?.role === 'admin' && (
-                        <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6">
-                            <h3 className="text-lg font-semibold text-[#0E2B5C] mb-4">🏫 Configuración del Sistema</h3>
-                            <form onSubmit={handleActualizarSistema} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-[#374151] mb-1">
-                                        Nombre de la Institución
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={configSistema.nombre_institucion}
-                                        onChange={(e) => setConfigSistema({
-                                            ...configSistema,
-                                            nombre_institucion: e.target.value
-                                        })}
-                                        className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-[#374151] mb-1">
-                                        Año Académico
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={configSistema.anio_academico}
-                                        onChange={(e) => setConfigSistema({
-                                            ...configSistema,
-                                            anio_academico: parseInt(e.target.value)
-                                        })}
-                                        className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-[#374151] mb-1">
-                                        Período de Evaluación
-                                    </label>
-                                    <select
-                                        value={configSistema.periodo_evaluacion}
-                                        onChange={(e) => setConfigSistema({
-                                            ...configSistema,
-                                            periodo_evaluacion: e.target.value
-                                        })}
-                                        className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    >
-                                        <option value="bimestral">Bimestral</option>
-                                        <option value="trimestral">Trimestral</option>
-                                        <option value="semestral">Semestral</option>
-                                    </select>
-                                </div>
-
-                                <div className="flex items-center justify-between py-3 px-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                                    <div>
-                                        <p className="text-sm font-medium text-[#92400E]">Modo Mantenimiento</p>
-                                        <p className="text-xs text-[#B45309]">Desactiva el acceso al sistema temporalmente</p>
+                        {/* Idioma y notificaciones */}
+                        <div className="lg:col-span-5">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Globe className="h-5 w-5 text-sidebar-bg" />
+                                        Idioma y notificaciones
+                                    </CardTitle>
+                                    <CardDescription>Preferencias de comunicación y localización</CardDescription>
+                                </CardHeader>
+                                <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-2">
+                                            <Globe className="h-4 w-4 text-slate-400" />
+                                            Idioma de la aplicación
+                                        </Label>
+                                        <Select value={idioma} onValueChange={handleCambiarIdioma}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Seleccionar idioma" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {idiomaOptions.map((opt) => (
+                                                    <SelectItem key={opt.value} value={opt.value}>
+                                                        {opt.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={configSistema.modo_mantenimiento}
-                                            onChange={(e) => setConfigSistema({
-                                                ...configSistema,
-                                                modo_mantenimiento: e.target.checked
-                                            })}
-                                            className="sr-only peer"
+
+                                    <div className="space-y-4 md:col-span-1">
+                                        <ToggleRow
+                                            id="notif-push"
+                                            title="Notificaciones push"
+                                            description="Alertas sobre actividades importantes"
+                                            checked={notificaciones}
+                                            onChange={handleCambiarNotificaciones}
                                         />
-                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-yellow-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-600"></div>
-                                    </label>
-                                </div>
-
-                                <div className="flex justify-end">
-                                    <button
-                                        type="submit"
-                                        className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
-                                    >
-                                        Actualizar Configuración
-                                    </button>
-                                </div>
-                            </form>
+                                        <ToggleRow
+                                            id="notif-email"
+                                            title="Notificaciones por email"
+                                            description="Resúmenes y avisos por correo"
+                                            checked={notificacionesEmail}
+                                            onChange={handleCambiarNotificacionesEmail}
+                                        />
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
-                    )}
-                </div>
 
-                {/* Modal */}
-                <Modal
-                    isOpen={modalConfig.isOpen}
-                    onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-                    title={modalConfig.title}
-                    message={modalConfig.message}
-                    type={modalConfig.type}
-                />
+                        {/* Sistema (admin) */}
+                        {usuario?.role === 'admin' && (
+                            <div className="lg:col-span-5">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Building2 className="h-5 w-5 text-sidebar-bg" />
+                                            Configuración del sistema
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Parámetros institucionales del colegio
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <form id="config-sistema-form" onSubmit={handleActualizarSistema} className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                                            <div className="space-y-2 md:col-span-2">
+                                                <Label htmlFor="nombre_institucion">Nombre de la institución</Label>
+                                                <Input
+                                                    id="nombre_institucion"
+                                                    value={configSistema.nombre_institucion}
+                                                    onChange={(e) =>
+                                                        setConfigSistema({
+                                                            ...configSistema,
+                                                            nombre_institucion: e.target.value,
+                                                        })
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="anio_academico">Año académico</Label>
+                                                <Input
+                                                    id="anio_academico"
+                                                    type="number"
+                                                    value={configSistema.anio_academico}
+                                                    onChange={(e) =>
+                                                        setConfigSistema({
+                                                            ...configSistema,
+                                                            anio_academico:
+                                                                parseInt(e.target.value, 10) ||
+                                                                configSistema.anio_academico,
+                                                        })
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Período de evaluación</Label>
+                                                <Select
+                                                    value={configSistema.periodo_evaluacion}
+                                                    onValueChange={(value) =>
+                                                        setConfigSistema({
+                                                            ...configSistema,
+                                                            periodo_evaluacion: value,
+                                                        })
+                                                    }
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Seleccionar período" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {periodoOptions.map((opt) => (
+                                                            <SelectItem key={opt.value} value={opt.value}>
+                                                                {opt.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="md:col-span-2">
+                                                <div className="flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-3">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-amber-900">
+                                                            Modo mantenimiento
+                                                        </p>
+                                                        <p className="text-xs text-amber-700">
+                                                            Desactiva el acceso al sistema temporalmente
+                                                        </p>
+                                                    </div>
+                                                    <label htmlFor="modo-mantenimiento" className="relative inline-flex shrink-0 cursor-pointer items-center">
+                                                        <input
+                                                            id="modo-mantenimiento"
+                                                            type="checkbox"
+                                                            checked={configSistema.modo_mantenimiento}
+                                                            onChange={(e) =>
+                                                                setConfigSistema({
+                                                                    ...configSistema,
+                                                                    modo_mantenimiento: e.target.checked,
+                                                                })
+                                                            }
+                                                            className="peer sr-only"
+                                                        />
+                                                        <div className="h-6 w-11 rounded-full bg-slate-200 transition-colors peer-checked:bg-amber-600 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-500 peer-focus-visible:ring-offset-2 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all peer-checked:after:translate-x-5" />
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </CardContent>
+                                    <CardFooter className="justify-end">
+                                        <Button type="submit" form="config-sistema-form" disabled={guardandoSistema}>
+                                            <Settings className="h-4 w-4" />
+                                            {guardandoSistema ? 'Guardando...' : 'Guardar configuración'}
+                                        </Button>
+                                    </CardFooter>
+                                </Card>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
+
+            <Modal
+                isOpen={modalConfig.isOpen}
+                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                type={modalConfig.type}
+            />
         </Layout>
     );
 };

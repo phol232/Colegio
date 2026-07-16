@@ -15,17 +15,17 @@ Aplicación React con TypeScript, Tailwind CSS y Zustand para el sistema de gest
 ## Instalación
 
 ```bash
-# Instalar dependencias
-npm install
+corepack enable
+pnpm install
 
 # Iniciar servidor de desarrollo
-npm run dev
+pnpm run dev
 
 # Build para producción
-npm run build
+pnpm run build
 
 # Preview del build
-npm run preview
+pnpm run preview
 ```
 
 ## Estructura del Proyecto
@@ -68,6 +68,17 @@ Crear archivo `.env` en la raíz del proyecto:
 VITE_API_URL=http://localhost:80/api
 ```
 
-## Desarrollo
+## Docker
+
+El frontend se construye y sirve como contenedor (`frontend` en `docker-compose.yml`):
+
+```bash
+docker compose build frontend
+docker compose up -d frontend
+```
+
+La imagen usa build multi-stage: `pnpm build` (Vite) + nginx alpine para archivos estáticos.
+
+## Desarrollo local
 
 El servidor de desarrollo se ejecuta en `http://localhost:3000` con proxy configurado para `/api` hacia el backend.

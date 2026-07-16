@@ -4,14 +4,6 @@ import { Layout } from '../../components/Layout';
 import { useAuthStore } from '../../stores/authStore';
 import api from '../../services/api';
 
-interface Curso {
-    id: number;
-    nombre: string;
-    codigo: string;
-    grado: string;
-    seccion: string;
-}
-
 interface NotaResumen {
     curso_id: number;
     curso_nombre: string;

@@ -6,6 +6,7 @@ import { GradesTable } from '../../components/GradesTable';
 import { Modal } from '../../components/Modal';
 import { getCourseColor } from '../../utils/courseColors';
 import { calcularPromedioEstudiante } from '../../utils/promedioCalculator';
+import { sameId, toId } from '../../utils/ids';
 import api from '../../services/api';
 
 interface Curso {
@@ -100,7 +101,7 @@ export const NotasEditor = () => {
 
         try {
             const respCursos = await api.get('/docente/cursos');
-            const cursoEncontrado = respCursos.data.data?.find((c: Curso) => c.id === parseInt(cursoId));
+            const cursoEncontrado = respCursos.data.data?.find((c: Curso) => sameId(c.id, cursoId));
             
             if (!cursoEncontrado) {
                 throw new Error('Curso no encontrado');
@@ -121,7 +122,7 @@ export const NotasEditor = () => {
                 const notasEval = respNotas.data.data || [];
 
                 notasEval.forEach((nota: NotaDetalle) => {
-                    const key = `${nota.estudiante_id}-${nota.evaluacion_id}`;
+                    const key = `${toId(nota.estudiante_id)}-${toId(nota.evaluacion_id)}`;
                     notasMap.set(key, nota.puntaje);
                 });
             }
@@ -152,16 +153,17 @@ export const NotasEditor = () => {
         const promediosMap = new Map<number, Promedio>();
 
         estudiantesData.forEach(estudiante => {
+            const estudianteId = toId(estudiante.id);
             const notasEstudiante = evals
                 .map(evaluacion => ({
-                    evaluacionId: evaluacion.id,
-                    puntaje: notasMap.get(`${estudiante.id}-${evaluacion.id}`)
+                    evaluacionId: toId(evaluacion.id),
+                    puntaje: notasMap.get(`${toId(estudiante.id)}-${toId(evaluacion.id)}`)
                 }))
                 .filter(n => n.puntaje !== undefined) as Array<{ evaluacionId: number; puntaje: number }>;
 
             if (notasEstudiante.length > 0) {
                 const promedio = calcularPromedioEstudiante(evals, notasEstudiante);
-                promediosMap.set(estudiante.id, promedio);
+                promediosMap.set(estudianteId, promedio);
             }
         });
 
@@ -169,7 +171,7 @@ export const NotasEditor = () => {
     };
 
     const handleNotaChange = (estudianteId: number, evaluacionId: number, puntaje: number | null) => {
-        const key = `${estudianteId}-${evaluacionId}`;
+        const key = `${toId(estudianteId)}-${toId(evaluacionId)}`;
         const nuevasNotas = new Map(notas);
         const nuevasModificadas = new Set(notasModificadas);
 
@@ -282,20 +284,21 @@ export const NotasEditor = () => {
     };
 
     const handleEvaluacionUpdated = (evaluacion: Evaluacion) => {
-        setEvaluaciones(evaluaciones.map(e => e.id === evaluacion.id ? evaluacion : e));
+        setEvaluaciones(evaluaciones.map(e => sameId(e.id, evaluacion.id) ? evaluacion : e));
     };
 
     const handleEvaluacionDeleted = (evaluacionId: number) => {
-        setEvaluaciones(evaluaciones.filter(e => e.id !== evaluacionId));
+        const idNorm = toId(evaluacionId);
+        setEvaluaciones(evaluaciones.filter(e => !sameId(e.id, idNorm)));
 
         const nuevasNotas = new Map(notas);
         Array.from(nuevasNotas.keys()).forEach(key => {
-            if (key.endsWith(`-${evaluacionId}`)) {
+            if (key.endsWith(`-${idNorm}`)) {
                 nuevasNotas.delete(key);
             }
         });
         setNotas(nuevasNotas);
-        calcularPromediosLocales(evaluaciones.filter(e => e.id !== evaluacionId), nuevasNotas, estudiantes);
+        calcularPromediosLocales(evaluaciones.filter(e => !sameId(e.id, idNorm)), nuevasNotas, estudiantes);
     };
 
     if (loading) {
@@ -366,8 +369,8 @@ export const NotasEditor = () => {
                 <div className="max-w-[1600px] mx-auto px-6 py-6">
                     <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6 mb-6">
                         <EvaluacionManager
-                            cursoId={parseInt(cursoId!)}
-                            mes={parseInt(mes!)}
+                            cursoId={toId(cursoId!)}
+                            mes={toId(mes!)}
                             evaluaciones={evaluaciones}
                             onEvaluacionCreated={handleEvaluacionCreated}
                             onEvaluacionUpdated={handleEvaluacionUpdated}

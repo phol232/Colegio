@@ -1,0 +1,209 @@
+name: academic-prod
+
+x-backend-common: &backend-common
+  build:
+    context: ./Backend
+    dockerfile: Dockerfile.prod
+  env_file:
+    - .env
+  environment:
+    NODE_ENV: production
+    PORT: 3000
+    DB_HOST: pgbouncer
+    DB_PORT: 6432
+    DB_DATABASE: academic_oltp
+    DB_USERNAME: academic
+    DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    DB_OLAP_HOST: pgbouncer
+    DB_OLAP_PORT: 6432
+    DB_OLAP_DATABASE: academic_olap
+    DB_OLAP_USERNAME: academic
+    DB_OLAP_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    REDIS_CACHE_HOST: redis-cache
+    REDIS_CACHE_PORT: 6379
+    REDIS_QUEUE_HOST: redis-queue
+    REDIS_QUEUE_PORT: 6379
+    SWAGGER_ENABLED: "false"
+    TZ: America/Lima
+  networks:
+    - academic_network
+  restart: unless-stopped
+  init: true
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: academic_nginx
+    expose:
+      - "80"
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    networks:
+      - academic_network
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  backend-api:
+    <<: *backend-common
+    container_name: academic_backend_api
+    command: ["node", "dist/main.js"]
+    expose:
+      - "3000"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
+      redis-cache:
+        condition: service_healthy
+      redis-queue:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 45s
+
+  backend-worker:
+    <<: *backend-common
+    container_name: academic_backend_worker
+    command: ["node", "dist/worker.main.js"]
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
+      redis-cache:
+        condition: service_healthy
+      redis-queue:
+        condition: service_healthy
+
+  backend-scheduler:
+    <<: *backend-common
+    container_name: academic_backend_scheduler
+    command: ["node", "dist/scheduler.main.js"]
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
+      redis-cache:
+        condition: service_healthy
+      redis-queue:
+        condition: service_healthy
+      backend-worker:
+        condition: service_started
+
+  db-init:
+    image: postgres:16-alpine
+    container_name: academic_db_init
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      PGHOST: citas-db
+      PGPORT: 5440
+      PGUSER: academic
+      TZ: America/Lima
+    volumes:
+      - ./Database:/database:ro
+      - ./Database/docker-init/entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    networks:
+      - citas_network
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: academic_pgbouncer
+    environment:
+      DATABASE_URLS: >-
+        postgres://academic:${DB_PASSWORD:?DB_PASSWORD is required}@citas-db:5440/academic_oltp,
+        postgres://academic:${DB_PASSWORD:?DB_PASSWORD is required}@citas-db:5440/academic_olap
+      AUTH_TYPE: scram-sha-256
+      LISTEN_PORT: 6432
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 100
+      DEFAULT_POOL_SIZE: 50
+      MIN_POOL_SIZE: 10
+      RESERVE_POOL_SIZE: 5
+      SERVER_IDLE_TIMEOUT: 600
+      ADMIN_USERS: academic
+      STATS_USERS: academic
+      TZ: America/Lima
+    expose:
+      - "6432"
+    networks:
+      - academic_network
+      - citas_network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  redis-cache:
+    image: redis:7-alpine
+    container_name: academic_redis_cache
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    environment:
+      TZ: America/Lima
+    expose:
+      - "6379"
+    networks:
+      - academic_network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  redis-queue:
+    image: redis:7-alpine
+    container_name: academic_redis_queue
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+    environment:
+      TZ: America/Lima
+    volumes:
+      - redis_queue_data:/data
+    expose:
+      - "6379"
+    networks:
+      - academic_network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  academic_network:
+    driver: bridge
+  citas_network:
+    external: true
+    name: plataformareservas-reservas-p5sdl3_citas-net
+
+volumes:
+  redis_queue_data:
+    driver: local

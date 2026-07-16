@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import api from '../../services/api';
+import { sameId, toId } from '../../utils/ids';
 
 interface AsistenciaDetallada {
     curso_id: number;
@@ -126,7 +127,7 @@ export const MisAsistencias = () => {
             setLoadingDetalle(true);
             const response = await api.get(`/asistencias/estudiante/curso/${cursoId}`);
             
-            const curso = asistenciasDetalladas.find(c => c.curso_id === cursoId);
+            const curso = asistenciasDetalladas.find(c => sameId(c.curso_id, cursoId));
             if (curso && response.data.data) {
                 setCursoSeleccionado({
                     ...curso,
@@ -146,7 +147,7 @@ export const MisAsistencias = () => {
     };
 
     const handleVerDetalle = (curso: AsistenciaDetallada) => {
-        cargarDetalleAsistencias(curso.curso_id);
+        cargarDetalleAsistencias(toId(curso.curso_id));
     };
 
     const handleCerrarModal = () => {

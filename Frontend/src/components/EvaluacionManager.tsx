@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal } from './Modal';
+import { sameId, toId } from '../utils/ids';
 import api from '../services/api';
 
 interface Evaluacion {
@@ -78,7 +79,7 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
 
     const calcularPesoDisponible = () => {
         const pesoUsado = evaluaciones
-            .filter(e => e.id !== editando && e.peso !== null)
+            .filter(e => !sameId(e.id, editando) && e.peso !== null)
             .reduce((sum, e) => sum + (e.peso || 0), 0);
         return 100 - pesoUsado;
     };
@@ -132,7 +133,7 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
         }
 
         const pesoTotal = evaluaciones
-            .filter(e => e.id !== editando && e.peso !== null)
+            .filter(e => !sameId(e.id, editando) && e.peso !== null)
             .reduce((sum, e) => sum + (e.peso || 0), 0) + peso;
 
         if (pesoTotal > 100) {
@@ -206,7 +207,7 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
     };
 
     const handleEditar = (evaluacion: Evaluacion) => {
-        setEditando(evaluacion.id);
+        setEditando(toId(evaluacion.id));
         setFormData({
             nombre: evaluacion.nombre,
             tipo_evaluacion: evaluacion.tipo_evaluacion,
@@ -233,7 +234,7 @@ export const EvaluacionManager: React.FC<EvaluacionManagerProps> = ({
                     });
 
                     if (response.data.success) {
-                        onEvaluacionDeleted(evaluacion.id);
+                        onEvaluacionDeleted(toId(evaluacion.id));
                         setModalConfig({
                             isOpen: true,
                             title: '✓ Evaluación eliminada',

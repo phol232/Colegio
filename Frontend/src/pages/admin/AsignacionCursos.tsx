@@ -70,8 +70,8 @@ export const AsignacionCursos = () => {
     }, []);
 
     useEffect(() => {
-        if (gradoSeleccionado) {
-            const grado = grados.find(g => g.id === gradoSeleccionado);
+        if (gradoSeleccionado != null) {
+            const grado = grados.find((g) => Number(g.id) === gradoSeleccionado);
             if (grado) {
                 cargarCatalogoCursos(grado.nivel);
             }
@@ -122,10 +122,9 @@ export const AsignacionCursos = () => {
         if (cursosAsignados.length > 0) {
             setModoEdicion(true);
             // Pre-seleccionar los cursos ya asignados
-            const cursosIds = cursosAsignados.map(c => c.curso_catalogo_id);
+            const cursosIds = cursosAsignados.map((c) => Number(c.curso_catalogo_id));
             setCursosSeleccionados(cursosIds);
-            // Pre-seleccionar el docente (todos deben tener el mismo en primaria)
-            setDocenteSeleccionado(cursosAsignados[0].docente_id);
+            setDocenteSeleccionado(Number(cursosAsignados[0].docente_id));
         } else {
             setModoEdicion(false);
             setCursosSeleccionados([]);
@@ -224,13 +223,13 @@ export const AsignacionCursos = () => {
         );
     }
 
-    const seccionesDisponibles = gradoSeleccionado
-        ? grados.find(g => g.id === gradoSeleccionado)?.secciones || []
-        : [];
+    const gradoActual = gradoSeleccionado != null
+        ? grados.find((g) => Number(g.id) === gradoSeleccionado)
+        : undefined;
 
-    const nivelGrado = gradoSeleccionado
-        ? grados.find(g => g.id === gradoSeleccionado)?.nivel
-        : null;
+    const seccionesDisponibles = gradoActual?.secciones ?? [];
+
+    const nivelGrado = gradoActual?.nivel ?? null;
 
     return (
         <Layout>
@@ -247,17 +246,18 @@ export const AsignacionCursos = () => {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Grado</label>
                             <select
-                                value={gradoSeleccionado || ''}
+                                value={gradoSeleccionado ?? ''}
                                 onChange={(e) => {
-                                    setGradoSeleccionado(Number(e.target.value));
+                                    const value = e.target.value;
+                                    setGradoSeleccionado(value ? Number(value) : null);
                                     setSeccionSeleccionada(null);
                                     setCursosAsignados([]);
                                 }}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                className="w-full bg-white px-4 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="">Seleccionar grado</option>
                                 {grados.map((grado) => (
-                                    <option key={grado.id} value={grado.id}>{grado.nombre}</option>
+                                    <option key={grado.id} value={Number(grado.id)}>{grado.nombre}</option>
                                 ))}
                             </select>
                         </div>
@@ -265,16 +265,26 @@ export const AsignacionCursos = () => {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Sección</label>
                             <select
-                                value={seccionSeleccionada || ''}
-                                onChange={(e) => setSeccionSeleccionada(Number(e.target.value))}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                disabled={!gradoSeleccionado}
+                                value={seccionSeleccionada ?? ''}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setSeccionSeleccionada(value ? Number(value) : null);
+                                }}
+                                className="w-full bg-white px-4 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                disabled={gradoSeleccionado == null}
                             >
                                 <option value="">Seleccionar sección</option>
                                 {seccionesDisponibles.map((seccion) => (
-                                    <option key={seccion.id} value={seccion.id}>Sección {seccion.nombre}</option>
+                                    <option key={seccion.id} value={Number(seccion.id)}>
+                                        Sección {seccion.nombre}
+                                    </option>
                                 ))}
                             </select>
+                            {gradoSeleccionado != null && seccionesDisponibles.length === 0 && (
+                                <p className="mt-2 text-sm text-amber-700">
+                                    Este grado no tiene secciones. Créalas en Grados y Secciones.
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -328,7 +338,7 @@ export const AsignacionCursos = () => {
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{curso.docente?.name}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <button
-                                                    onClick={() => desasignarCurso(curso.id)}
+                                                    onClick={() => desasignarCurso(Number(curso.id))}
                                                     className="text-red-600 hover:text-red-900"
                                                     title="Desasignar"
                                                 >
@@ -365,14 +375,17 @@ export const AsignacionCursos = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Docente</label>
                                     <select
-                                        value={docenteSeleccionado || ''}
-                                        onChange={(e) => setDocenteSeleccionado(Number(e.target.value))}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        value={docenteSeleccionado ?? ''}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            setDocenteSeleccionado(value ? Number(value) : null);
+                                        }}
+                                        className="w-full bg-white px-4 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                         required
                                     >
                                         <option value="">Seleccionar docente</option>
                                         {docentes.map((docente) => (
-                                            <option key={docente.id} value={docente.id}>{docente.name}</option>
+                                            <option key={docente.id} value={Number(docente.id)}>{docente.name}</option>
                                         ))}
                                     </select>
                                     {nivelGrado === 'primaria' && (
@@ -391,15 +404,15 @@ export const AsignacionCursos = () => {
                                         {catalogoCursos.map((curso) => (
                                             <label
                                                 key={curso.id}
-                                                className={`flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${cursosSeleccionados.includes(curso.id)
+                                                className={`flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${cursosSeleccionados.includes(Number(curso.id))
                                                         ? 'border-blue-500 bg-blue-50'
                                                         : 'border-gray-200 hover:border-gray-300'
                                                     }`}
                                             >
                                                 <input
                                                     type="checkbox"
-                                                    checked={cursosSeleccionados.includes(curso.id)}
-                                                    onChange={() => toggleCurso(curso.id)}
+                                                    checked={cursosSeleccionados.includes(Number(curso.id))}
+                                                    onChange={() => toggleCurso(Number(curso.id))}
                                                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                                                 />
                                                 <div className="flex-1">

@@ -84,7 +84,7 @@ export const AsignacionEstudiantes = () => {
     const abrirModalAsignacion = () => {
         if (estudiantesAsignados.length > 0) {
             setModoEdicion(true);
-            const estudiantesIds = estudiantesAsignados.map(e => e.id);
+            const estudiantesIds = estudiantesAsignados.map((e) => Number(e.id));
             setEstudiantesSeleccionados(estudiantesIds);
         } else {
             setModoEdicion(false);
@@ -150,18 +150,19 @@ export const AsignacionEstudiantes = () => {
         );
     }
 
-    const seccionesDisponibles = gradoSeleccionado
-        ? grados.find(g => g.id === gradoSeleccionado)?.secciones || []
-        : [];
+    const gradoActual = gradoSeleccionado != null
+        ? grados.find((g) => Number(g.id) === gradoSeleccionado)
+        : undefined;
 
-    const nivelGrado = gradoSeleccionado
-        ? grados.find(g => g.id === gradoSeleccionado)?.nivel
-        : null;
+    const seccionesDisponibles = gradoActual?.secciones ?? [];
+
+    const nivelGrado = gradoActual?.nivel ?? null;
 
     // Filtrar estudiantes: solo mostrar los que NO están asignados a ninguna sección
     // O los que ya están asignados a la sección actual (para poder editarlos)
-    const estudiantesDisponibles = estudiantes.filter(estudiante => {
-        const estaEnSeccionActual = estudiantesAsignados.some(e => e.id === estudiante.id);
+    const estudiantesDisponibles = estudiantes.filter((estudiante) => {
+        const estudianteId = Number(estudiante.id);
+        const estaEnSeccionActual = estudiantesAsignados.some((e) => Number(e.id) === estudianteId);
         // Si está en la sección actual, siempre mostrarlo
         if (estaEnSeccionActual) return true;
         // Si no, solo mostrarlo si no tiene el flag de asignado
@@ -183,17 +184,18 @@ export const AsignacionEstudiantes = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Grado</label>
               <select
-                value={gradoSeleccionado || ''}
+                value={gradoSeleccionado ?? ''}
                 onChange={(e) => {
-                  setGradoSeleccionado(Number(e.target.value));
+                  const value = e.target.value;
+                  setGradoSeleccionado(value ? Number(value) : null);
                   setSeccionSeleccionada(null);
                   setEstudiantesAsignados([]);
                 }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-white px-4 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Seleccionar grado</option>
                 {grados.map((grado) => (
-                  <option key={grado.id} value={grado.id}>{grado.nombre}</option>
+                  <option key={grado.id} value={Number(grado.id)}>{grado.nombre}</option>
                 ))}
               </select>
             </div>
@@ -201,16 +203,24 @@ export const AsignacionEstudiantes = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Sección</label>
               <select
-                value={seccionSeleccionada || ''}
-                onChange={(e) => setSeccionSeleccionada(Number(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                disabled={!gradoSeleccionado}
+                value={seccionSeleccionada ?? ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSeccionSeleccionada(value ? Number(value) : null);
+                }}
+                className="w-full bg-white px-4 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                disabled={gradoSeleccionado == null}
               >
                 <option value="">Seleccionar sección</option>
                 {seccionesDisponibles.map((seccion) => (
-                  <option key={seccion.id} value={seccion.id}>Sección {seccion.nombre}</option>
+                  <option key={seccion.id} value={Number(seccion.id)}>Sección {seccion.nombre}</option>
                 ))}
               </select>
+              {gradoSeleccionado != null && seccionesDisponibles.length === 0 && (
+                <p className="mt-2 text-sm text-amber-700">
+                  Este grado no tiene secciones. Créalas en Grados y Secciones.
+                </p>
+              )}
             </div>
           </div>
 
@@ -311,8 +321,9 @@ export const AsignacionEstudiantes = () => {
                       </div>
                     ) : (
                       estudiantesDisponibles.map((estudiante) => {
-                        const yaAsignadoAqui = estudiantesAsignados.some(e => e.id === estudiante.id);
-                        const seleccionado = estudiantesSeleccionados.includes(estudiante.id);
+                        const estudianteId = Number(estudiante.id);
+                        const yaAsignadoAqui = estudiantesAsignados.some((e) => Number(e.id) === estudianteId);
+                        const seleccionado = estudiantesSeleccionados.includes(estudianteId);
                         
                         return (
                           <label
@@ -326,7 +337,7 @@ export const AsignacionEstudiantes = () => {
                             <input
                               type="checkbox"
                               checked={seleccionado}
-                              onChange={() => toggleEstudiante(estudiante.id)}
+                              onChange={() => toggleEstudiante(estudianteId)}
                               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                             />
                             <div className="flex-1">
