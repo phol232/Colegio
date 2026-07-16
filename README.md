@@ -8,7 +8,7 @@ Sistema de gestión académica: React frontend, NestJS API (TypeScript por capas
 
 | Servicio | Rol |
 |----------|-----|
-| `nginx` | Reverse proxy de la API |
+| `nginx` | Reverse proxy del stack local; producción usa Traefik |
 | `frontend` | React SPA local; en producción se despliega en Vercel |
 | `backend-api` | NestJS HTTP (`/api`) |
 | `backend-worker` | BullMQ consumer ETL OLAP |
@@ -71,17 +71,16 @@ contraseña de ese rol.
 
 ```bash
 cp .env.example .env
-# Configurar DB_PASSWORD, APP_URL, API_DOMAIN y CORS_ORIGIN
+# Configurar DB_PASSWORD, APP_URL y CORS_ORIGIN
 docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml exec nginx \
-  wget -qO- http://localhost/api/health
+docker compose -f docker-compose.prod.yml exec backend-api \
+  wget -qO- http://localhost:3000/api/health
 ```
 
-El Compose conecta `nginx` a `dokploy-network` y declara directamente las
-etiquetas Traefik para `API_DOMAIN`, con HTTPS y Let's Encrypt. No agregues el
-mismo dominio desde la interfaz de Dokploy para evitar routers duplicados. El
-Compose no publica `80:80` porque Traefik ya ocupa los puertos 80 y 443 del
-VPS. En Vercel, configura
+En Dokploy, configura el dominio `apicolegio.optrix.cloud` sobre el servicio
+`backend-api`, puerto interno `3000`, y activa HTTPS con Let's Encrypt. Dokploy
+se encarga de inyectar las etiquetas Traefik y conectar su red. En Vercel,
+configura
 `VITE_API_URL=https://apicolegio.optrix.cloud/api`.
 
 ### Desarrollo local del Backend
