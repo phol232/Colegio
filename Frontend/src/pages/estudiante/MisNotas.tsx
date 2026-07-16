@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '../../components/Layout';
 import { getCourseColor } from '../../utils/courseColors';
 import api from '../../services/api';
 
@@ -195,16 +194,16 @@ export const MisNotas = () => {
 
     if (loading) {
         return (
-            <Layout>
+            <>
                 <div className="flex items-center justify-center h-screen">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C62828]"></div>
                 </div>
-            </Layout>
+            </>
         );
     }
 
     return (
-        <Layout>
+        <>
             <div className="min-h-screen bg-[#F4F6F8]">
                 {/* Header */}
                 <div className="bg-white border-b border-[#E5E7EB] shadow-sm">
@@ -319,6 +318,6 @@ export const MisNotas = () => {
                     </div>
                 )}
             </div>
-        </Layout>
+        </>
     );
 };

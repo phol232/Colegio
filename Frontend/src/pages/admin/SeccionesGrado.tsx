@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Layout } from '../../components/Layout';
 import { Modal } from '../../components/Modal';
 import { FormModal, btnPrimary, btnPrimarySm, btnOutlineSecondary } from '../../components/FormModal';
 import api from '../../services/api';
@@ -172,17 +171,17 @@ export const SeccionesGrado = () => {
 
     if (loading) {
         return (
-            <Layout>
+            <>
                 <div className="flex h-[60vh] items-center justify-center">
                     <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-sidebar-bg" />
                 </div>
-            </Layout>
+            </>
         );
     }
 
     if (error || !grado) {
         return (
-            <Layout>
+            <>
                 <div className="p-6 md:p-8">
                     <button
                         type="button"
@@ -201,12 +200,12 @@ export const SeccionesGrado = () => {
                         </button>
                     </div>
                 </div>
-            </Layout>
+            </>
         );
     }
 
     return (
-        <Layout>
+        <>
             <div className="p-6 md:p-8">
                 <button
                     type="button"
@@ -374,6 +373,6 @@ export const SeccionesGrado = () => {
                     onConfirm={modalConfig.onConfirm}
                 />
             </div>
-        </Layout>
+        </>
     );
 };

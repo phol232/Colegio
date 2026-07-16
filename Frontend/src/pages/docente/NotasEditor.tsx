@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout } from '../../components/Layout';
 import { EvaluacionManager } from '../../components/EvaluacionManager';
 import { GradesTable } from '../../components/GradesTable';
 import { Modal } from '../../components/Modal';
@@ -303,17 +302,17 @@ export const NotasEditor = () => {
 
     if (loading) {
         return (
-            <Layout>
+            <>
                 <div className="flex items-center justify-center h-screen">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C62828]"></div>
                 </div>
-            </Layout>
+            </>
         );
     }
 
     if (!curso) {
         return (
-            <Layout>
+            <>
                 <div className="flex items-center justify-center h-screen">
                     <div className="text-center">
                         <p className="text-red-600 mb-4">Curso no encontrado</p>
@@ -325,7 +324,7 @@ export const NotasEditor = () => {
                         </button>
                     </div>
                 </div>
-            </Layout>
+            </>
         );
     }
 
@@ -333,7 +332,7 @@ export const NotasEditor = () => {
     const nombreMes = MESES[parseInt(mes!) as keyof typeof MESES] || `Mes ${mes}`;
 
     return (
-        <Layout>
+        <>
             <div className="min-h-screen bg-[#F4F6F8]">
                 <div className="bg-white border-b border-[#E5E7EB] shadow-sm">
                     <div className="max-w-[1600px] mx-auto px-6 py-4">
@@ -453,6 +452,6 @@ export const NotasEditor = () => {
                 message={modalConfig.message}
                 type={modalConfig.type}
             />
-        </Layout>
+        </>
     );
 };

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Layout } from '../../components/Layout';
 import { Modal } from '../../components/Modal';
 import { FormModal, btnPrimary, btnPrimarySm, btnOutlineSecondary } from '../../components/FormModal';
 import api from '../../services/api';
@@ -219,16 +218,16 @@ export const Usuarios = () => {
 
     if (loading) {
         return (
-            <Layout>
+            <>
                 <div className="flex h-[60vh] items-center justify-center">
                     <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-sidebar-bg" />
                 </div>
-            </Layout>
+            </>
         );
     }
 
     return (
-        <Layout>
+        <>
             <div className="p-6 md:p-8">
                 <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -519,6 +518,6 @@ export const Usuarios = () => {
                     cancelText="Cancelar"
                 />
             </div>
-        </Layout>
+        </>
     );
 };

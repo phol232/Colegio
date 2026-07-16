@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Layout } from '../components/Layout';
 import { Modal } from '../components/Modal';
 import api from '../services/api';
 
@@ -111,16 +110,16 @@ export const Analisis = () => {
 
     if (loading) {
         return (
-            <Layout>
+            <>
                 <div className="flex items-center justify-center h-screen">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                 </div>
-            </Layout>
+            </>
         );
     }
 
     return (
-        <Layout>
+        <>
             <div className="min-h-screen bg-[#F4F6F8]">
                 {/* Header */}
                 <div className="bg-white border-b border-[#E5E7EB] shadow-sm">
@@ -317,6 +316,6 @@ export const Analisis = () => {
                     type={modalConfig.type}
                 />
             </div>
-        </Layout>
+        </>
     );
 };

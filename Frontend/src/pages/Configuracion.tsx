@@ -7,7 +7,6 @@ import {
     Building2,
     Type,
 } from 'lucide-react';
-import { Layout } from '../components/Layout';
 import { Modal } from '../components/Modal';
 import api from '../services/api';
 import { Button } from '@/components/ui/button';
@@ -292,16 +291,16 @@ export const Configuracion = () => {
 
     if (loading) {
         return (
-            <Layout>
+            <>
                 <div className="flex h-[60vh] items-center justify-center">
                     <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-sidebar-bg" />
                 </div>
-            </Layout>
+            </>
         );
     }
 
     return (
-        <Layout>
+        <>
             <div className="flex justify-center px-4 py-8 md:px-6">
                 <div className="w-full max-w-5xl">
                     <div className="mb-8 text-center">
@@ -564,6 +563,6 @@ export const Configuracion = () => {
                 message={modalConfig.message}
                 type={modalConfig.type}
             />
-        </Layout>
+        </>
     );
 };

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '../../components/Layout';
 import { Modal } from '../../components/Modal';
 import { getCourseColor } from '../../utils/courseColors';
 import api from '../../services/api';
@@ -110,16 +109,16 @@ export const NotasIndex = () => {
 
     if (loading) {
         return (
-            <Layout>
+            <>
                 <div className="flex items-center justify-center h-screen">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C62828]"></div>
                 </div>
-            </Layout>
+            </>
         );
     }
 
     return (
-        <Layout>
+        <>
             <div className="p-6 bg-[#F4F6F8] min-h-screen">
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-[#1E1E1E]">Registro de Notas</h1>
@@ -212,6 +211,6 @@ export const NotasIndex = () => {
                         })}
                 </div>
             </div>
-        </Layout>
+        </>
     );
 };

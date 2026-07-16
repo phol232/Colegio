@@ -1,15 +1,26 @@
-import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Suspense, useEffect, useState } from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
 import api from '../services/api';
 import { useAuthStore } from '../stores/authStore';
 import { getDashboardPath } from '../utils/dashboardPath';
+import { Layout } from './Layout';
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  allowedRoles?: string[];
-}
+const contentFallback = (
+  <div className="flex flex-1 items-center justify-center py-24 text-sm text-slate-500">
+    Cargando…
+  </div>
+);
 
-export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
+/**
+ * Ruta padre persistente para las secciones autenticadas.
+ *
+ * Renderiza el `Layout` (sidebar + header) una sola vez y deja que solo el
+ * `<Outlet/>` cambie al navegar. El `<Suspense>` envuelve únicamente el
+ * contenido, por lo que el sidebar nunca se desmonta y el fallback de carga
+ * de los chunks lazy solo aparece en el área de contenido (sin recargar toda
+ * la pantalla).
+ */
+export const AppShell = () => {
   const { isAuthenticated, user, logout } = useAuthStore();
   const [checkingMaintenance, setCheckingMaintenance] = useState(true);
   const [blockedByMaintenance, setBlockedByMaintenance] = useState(false);
@@ -67,9 +78,26 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/mantenimiento" replace />;
   }
 
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+  return (
+    <Layout>
+      <Suspense fallback={contentFallback}>
+        <Outlet />
+      </Suspense>
+    </Layout>
+  );
+};
+
+/**
+ * Autorización por rol para grupos de rutas anidadas.
+ * Renderiza el `<Outlet/>` si el rol del usuario está permitido; de lo
+ * contrario redirige a su dashboard.
+ */
+export const RoleGuard = ({ allowedRoles }: { allowedRoles: string[] }) => {
+  const user = useAuthStore((s) => s.user);
+
+  if (user && !allowedRoles.includes(user.role)) {
     return <Navigate to={getDashboardPath(user.role)} replace />;
   }
 
-  return <>{children}</>;
+  return <Outlet />;
 };

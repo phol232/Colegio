@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '../../components/Layout';
 import api from '../../services/api';
 
 interface EstadisticasGenerales {
@@ -57,11 +56,11 @@ export const AdminDashboard = () => {
 
     if (loading) {
         return (
-            <Layout>
+            <>
                 <div className="flex items-center justify-center h-screen">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                 </div>
-            </Layout>
+            </>
         );
     }
 
@@ -74,7 +73,7 @@ export const AdminDashboard = () => {
         : 0;
 
     return (
-        <Layout>
+        <>
             <div className="min-h-screen bg-[#F4F6F8]">
                 {/* Header */}
                 <div className="bg-white border-b border-[#E5E7EB] shadow-sm">
@@ -347,6 +346,6 @@ export const AdminDashboard = () => {
                     </div>
                 </div>
             </div>
-        </Layout>
+        </>
     );
 };

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { User, Mail, Shield, Lock, Camera, CheckCircle2, AlertCircle, ImagePlus, Trash2 } from 'lucide-react';
-import { Layout } from '../components/Layout';
 import { useAuthStore } from '../stores/authStore';
 import api from '../services/api';
 import { AVATAR_ACCEPT, AVATAR_MAX_SIZE_BYTES, fileToBase64DataUrl, formatFileSize } from '../utils/avatarUpload';
@@ -183,16 +182,16 @@ export const Perfil = () => {
 
     if (loading) {
         return (
-            <Layout>
+            <>
                 <div className="flex h-[60vh] items-center justify-center">
                     <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-sidebar-bg" />
                 </div>
-            </Layout>
+            </>
         );
     }
 
     return (
-        <Layout>
+        <>
             <div className="flex justify-center px-4 py-8 md:px-6">
                 <div className="w-full max-w-5xl">
                     <div className="mb-8 text-center">
@@ -492,6 +491,6 @@ export const Perfil = () => {
                     </div>
                 </div>
             </div>
-        </Layout>
+        </>
     );
 };

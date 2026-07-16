@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Layout } from '../../components/Layout';
 import { Modal } from '../../components/Modal';
 import api from '../../services/api';
 import { getCourseColor } from '../../utils/courseColors';
@@ -166,16 +165,16 @@ export const RegistroAsistencia = () => {
 
     if (loading) {
         return (
-            <Layout>
+            <>
                 <div className="flex items-center justify-center h-screen">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4ADE80]"></div>
                 </div>
-            </Layout>
+            </>
         );
     }
 
     return (
-        <Layout>
+        <>
             <div className="p-6 bg-[#F4F6F8] min-h-screen">
                 {/* Header */}
                 <div className="mb-4">
@@ -533,6 +532,6 @@ export const RegistroAsistencia = () => {
                     type={modalConfig.type}
                 />
             </div>
-        </Layout>
+        </>
     );
 };

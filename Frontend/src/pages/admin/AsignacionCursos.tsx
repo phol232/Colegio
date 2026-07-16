@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Layout } from '../../components/Layout';
 import { Modal } from '../../components/Modal';
 import api from '../../services/api';
 
@@ -215,11 +214,11 @@ export const AsignacionCursos = () => {
 
     if (loading) {
         return (
-            <Layout>
+            <>
                 <div className="flex items-center justify-center h-screen">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                 </div>
-            </Layout>
+            </>
         );
     }
 
@@ -232,7 +231,7 @@ export const AsignacionCursos = () => {
     const nivelGrado = gradoActual?.nivel ?? null;
 
     return (
-        <Layout>
+        <>
             <div className="p-8">
                 {/* Header */}
                 <div className="mb-8">
@@ -462,6 +461,6 @@ export const AsignacionCursos = () => {
                     cancelText="Cancelar"
                 />
             </div>
-        </Layout>
+        </>
     );
 };
