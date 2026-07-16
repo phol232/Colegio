@@ -1,9 +1,11 @@
 import axios from 'axios';
 
 const ACCOUNT_BLOCKED_STORAGE_KEY = 'show_account_blocked_toast';
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+const apiBaseUrl = configuredApiUrl?.replace(/\/+$/, '') || '/api';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },

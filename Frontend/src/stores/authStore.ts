@@ -23,9 +23,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     login: async (email: string, password: string) => {
         try {
-            console.log('Logging in...', { email });
             const response = await api.post('/auth/login', { email, password });
-            console.log('Login response:', response.data);
             const data = response.data.data;
 
             // Construir objeto user desde la respuesta del backend
@@ -37,12 +35,10 @@ export const useAuthStore = create<AuthState>((set) => ({
             };
             const token = data.token;
 
-            console.log('Setting user and token...', { user, token });
             localStorage.setItem('token', token);
             localStorage.setItem('user', JSON.stringify(user));
 
             set({ user, token, isAuthenticated: true });
-            console.log('Login successful!');
         } catch (error: unknown) {
             const axiosError = error as {
                 response?: { data?: { message?: string; code?: string } };

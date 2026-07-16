@@ -65,8 +65,25 @@ src/
 Crear archivo `.env` en la raíz del proyecto:
 
 ```env
-VITE_API_URL=http://localhost:80/api
+VITE_API_URL=https://api.example.com/api
 ```
+
+Si no se define `VITE_API_URL`, el cliente utiliza `/api`, lo que permite
+seguir usando el proxy local de Vite y el stack Docker.
+
+## Despliegue en Vercel
+
+1. Importar el repositorio en Vercel.
+2. Configurar `Frontend` como **Root Directory**.
+3. Agregar `VITE_API_URL=https://api.example.com/api` en las variables de
+   Production, Preview y Development.
+4. Desplegar. Vercel detectará pnpm y utilizará `vercel.json` para construir
+   `dist` y redirigir las rutas de React Router hacia `index.html`.
+5. Agregar el dominio final de Vercel a `CORS_ORIGIN` en el backend y volver a
+   desplegarlo.
+
+No deben guardarse secretos en variables que comiencen con `VITE_`: estas
+variables forman parte del JavaScript público generado.
 
 ## Docker
 

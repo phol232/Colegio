@@ -71,16 +71,18 @@ contraseña de ese rol.
 
 ```bash
 cp .env.example .env
-# Configurar DB_PASSWORD, APP_URL y CORS_ORIGIN con valores reales
+# Configurar DB_PASSWORD, APP_URL, API_DOMAIN y CORS_ORIGIN
 docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml exec nginx \
   wget -qO- http://localhost/api/health
 ```
 
-En Dokploy, agrega el dominio de la API al servicio `nginx`, puerto interno
-`80`, y activa HTTPS. El Compose no publica `80:80` porque Traefik ya ocupa los
-puertos 80 y 443 del VPS. En Vercel, configura
-`VITE_API_URL=https://api.example.com/api`.
+El Compose conecta `nginx` a `dokploy-network` y declara directamente las
+etiquetas Traefik para `API_DOMAIN`, con HTTPS y Let's Encrypt. No agregues el
+mismo dominio desde la interfaz de Dokploy para evitar routers duplicados. El
+Compose no publica `80:80` porque Traefik ya ocupa los puertos 80 y 443 del
+VPS. En Vercel, configura
+`VITE_API_URL=https://apicolegio.optrix.cloud/api`.
 
 ### Desarrollo local del Backend
 
