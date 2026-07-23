@@ -21,13 +21,16 @@ pnpm run start:dev
 
 ## SQL
 
-Aplicar esquema desde `../Database` (requiere `pg` del backend):
+Esquema base desde `../Database` (requiere `pg` del backend):
 
 ```bash
 pnpm install
 NODE_PATH=./node_modules node ../Database/scripts/apply-sql.mjs --oltp
 NODE_PATH=./node_modules node ../Database/scripts/apply-sql.mjs --olap
 ```
+
+Migraciones versionadas (matrícula anual → sync estudiantes/cursos) las aplica el API
+al arrancar (`migrationsRun`). Manual: `pnpm migration:run:oltp`.
 
 ## Contrato
 

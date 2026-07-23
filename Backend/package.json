@@ -24,9 +24,11 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:cov": "jest --coverage",
     "migration:run:oltp": "typeorm-ts-node-commonjs migration:run -d src/infrastructure/typeorm/data-source.oltp.ts",
+    "migration:run:oltp:dist": "typeorm migration:run -d dist/infrastructure/typeorm/data-source.oltp.js",
     "migration:run:olap": "typeorm-ts-node-commonjs migration:run -d src/infrastructure/typeorm/data-source.olap.ts",
     "migration:revert:oltp": "typeorm-ts-node-commonjs migration:revert -d src/infrastructure/typeorm/data-source.oltp.ts",
-    "migration:revert:olap": "typeorm-ts-node-commonjs migration:revert -d src/infrastructure/typeorm/data-source.olap.ts"
+    "migration:revert:olap": "typeorm-ts-node-commonjs migration:revert -d src/infrastructure/typeorm/data-source.olap.ts",
+    "migration:show:oltp": "typeorm-ts-node-commonjs migration:show -d src/infrastructure/typeorm/data-source.oltp.ts"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",

@@ -11,6 +11,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -72,7 +73,6 @@ export class ActualizarSeccionDto {
 
 export class AsignarEstudiantesSeccionDto {
   @IsArray()
-  @ArrayMinSize(1)
   @Type(() => Number)
   @IsInt({ each: true })
   estudiantes_ids!: number[];
@@ -97,8 +97,9 @@ export class CrearCursoCatalogoDto {
   nivel!: 'primaria' | 'secundaria' | 'ambos';
 
   @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== '')
   @IsString()
-  descripcion?: string;
+  descripcion?: string | null;
 }
 
 export class ActualizarCursoCatalogoDto {
@@ -117,8 +118,9 @@ export class ActualizarCursoCatalogoDto {
   nivel?: 'primaria' | 'secundaria' | 'ambos';
 
   @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== '')
   @IsString()
-  descripcion?: string;
+  descripcion?: string | null;
 }
 
 export class AsignarCursosSeccionDto {
@@ -158,6 +160,26 @@ export class ActualizarConfiguracionDto {
   @IsOptional()
   @IsBoolean()
   modo_mantenimiento?: boolean;
+
+  @IsOptional()
+  @IsIn(['planificacion', 'matricula', 'activo', 'cerrado'])
+  periodo_academico_estado?: 'planificacion' | 'matricula' | 'activo' | 'cerrado';
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== '')
+  @IsString()
+  matricula_inicio?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== '')
+  @IsString()
+  matricula_fin?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Type(() => Number)
+  @IsInt()
+  grado_ingreso_id?: number | null;
 }
 
 export class CrearUsuarioDto {

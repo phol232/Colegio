@@ -38,6 +38,11 @@ export const Perfil = () => {
     const [mostrarCambiarPassword, setMostrarCambiarPassword] = useState(false);
     const [tipoDocumento, setTipoDocumento] = useState('dni');
     const [fechaRegistro, setFechaRegistro] = useState<string | null>(null);
+    const [situacionAcademica, setSituacionAcademica] = useState<{
+        grado: string;
+        seccion: string;
+        estado: string;
+    } | null>(null);
 
     const [perfil, setPerfil] = useState({
         name: '',
@@ -62,9 +67,12 @@ export const Perfil = () => {
 
     const cargarPerfil = async () => {
         try {
-            const response = await api.get('/perfil');
-            if (response.data.success) {
-                const data = response.data.data;
+            const [perfilRes, matriculaRes] = await Promise.all([
+                api.get('/perfil'),
+                api.get('/matricula/estado').catch(() => ({ data: null })),
+            ]);
+            if (perfilRes.data.success) {
+                const data = perfilRes.data.data;
                 setPerfil({
                     name: data.name || '',
                     email: data.email || '',
@@ -82,6 +90,20 @@ export const Perfil = () => {
                         }),
                     );
                 }
+            }
+            const mat = matriculaRes.data;
+            if (mat?.matricula_vigente) {
+                setSituacionAcademica({
+                    grado: mat.matricula_vigente.grado?.nombre ?? '—',
+                    seccion: mat.matricula_vigente.seccion?.nombre ?? '—',
+                    estado: 'activa',
+                });
+            } else if (mat?.solicitud_pendiente) {
+                setSituacionAcademica({
+                    grado: mat.solicitud_pendiente.grado?.nombre ?? '—',
+                    seccion: 'Pendiente de asignación',
+                    estado: 'pendiente',
+                });
             }
         } catch {
             mostrarMensaje('error', 'Error al cargar los datos del perfil');
@@ -303,6 +325,20 @@ export const Perfil = () => {
                                         <div className="rounded-lg border border-slate-100 bg-slate-50/80 px-4 py-3">
                                             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Miembro desde</p>
                                             <p className="mt-1 text-sm font-medium text-slate-700">{fechaRegistro}</p>
+                                        </div>
+                                    )}
+
+                                    {user?.role === 'estudiante' && situacionAcademica && (
+                                        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                                            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                                                Situación académica
+                                            </p>
+                                            <p className="mt-1 text-sm font-medium text-slate-800">
+                                                {situacionAcademica.grado} · {situacionAcademica.seccion}
+                                            </p>
+                                            <p className="mt-0.5 text-xs capitalize text-slate-500">
+                                                Matrícula {situacionAcademica.estado}
+                                            </p>
                                         </div>
                                     )}
                                 </CardContent>

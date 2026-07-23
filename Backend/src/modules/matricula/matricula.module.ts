@@ -1,17 +1,40 @@
 import { Module } from '@nestjs/common';
 import { CommonModule } from '../../common/common.module';
 import { MatriculaController } from './presentation/matricula.controller';
-import { ObtenerOpcionesMatriculaUseCase } from './application/obtener-opciones.use-case';
-import { VerificarEstadoMatriculaUseCase } from './application/verificar-estado.use-case';
+import { AdminMatriculasController } from './presentation/admin-matriculas.controller';
+import {
+  AprobarMatriculaUseCase,
+  CancelarSolicitudMatriculaUseCase,
+  ListarMatriculasAdminUseCase,
+  ObtenerEstadoMatriculaUseCase,
+  ObtenerPropuestaMatriculaUseCase,
+  ObtenerResumenMatriculaUseCase,
+  ReasignarSeccionMatriculaUseCase,
+  RechazarMatriculaUseCase,
+  RegistrarDecisionPromocionUseCase,
+  RetirarMatriculaUseCase,
+  SolicitarMatriculaUseCase,
+} from './application/matricula.use-cases';
 import { MatricularUseCase } from './application/matricular.use-case';
+import { ObtenerOpcionesMatriculaUseCase } from './application/obtener-opciones.use-case';
 
 @Module({
   imports: [CommonModule],
-  controllers: [MatriculaController],
+  controllers: [MatriculaController, AdminMatriculasController],
   providers: [
-    ObtenerOpcionesMatriculaUseCase,
-    VerificarEstadoMatriculaUseCase,
+    ObtenerEstadoMatriculaUseCase,
+    ObtenerPropuestaMatriculaUseCase,
+    SolicitarMatriculaUseCase,
+    CancelarSolicitudMatriculaUseCase,
+    ListarMatriculasAdminUseCase,
+    AprobarMatriculaUseCase,
+    RechazarMatriculaUseCase,
+    RetirarMatriculaUseCase,
+    ReasignarSeccionMatriculaUseCase,
+    RegistrarDecisionPromocionUseCase,
+    ObtenerResumenMatriculaUseCase,
     MatricularUseCase,
+    ObtenerOpcionesMatriculaUseCase,
   ],
 })
 export class MatriculaModule {}

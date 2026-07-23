@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Modal } from '../../components/Modal';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { getCourseColor } from '../../utils/courseColors';
+import { useToastStore } from '../../stores/toastStore';
 import api from '../../services/api';
 
 interface MesSelectorProps {
@@ -11,7 +18,7 @@ interface MesSelectorProps {
 
 const MesSelector: React.FC<MesSelectorProps> = ({ cursoId, onMesSeleccionado }) => {
     const [mesSeleccionado, setMesSeleccionado] = useState<string>('');
-    const [showModal, setShowModal] = useState(false);
+    const showToast = useToastStore((s) => s.show);
 
     const meses = [
         { valor: '3', nombre: 'Marzo' },
@@ -26,15 +33,15 @@ const MesSelector: React.FC<MesSelectorProps> = ({ cursoId, onMesSeleccionado })
         { valor: '12', nombre: 'Diciembre' }
     ];
 
-    const handleMesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setMesSeleccionado(e.target.value);
+    const handleMesChange = (value: string) => {
+        setMesSeleccionado(value === 'todos' ? '' : value);
     };
 
     const handleNotasClick = () => {
         if (mesSeleccionado) {
             onMesSeleccionado(cursoId, parseInt(mesSeleccionado));
         } else {
-            setShowModal(true);
+            showToast('Por favor selecciona un mes antes de continuar.', 'warning', 3500, 'Mes no seleccionado');
         }
     };
 
@@ -42,33 +49,31 @@ const MesSelector: React.FC<MesSelectorProps> = ({ cursoId, onMesSeleccionado })
         <>
             <div className="space-y-2">
                 <p className="text-xs font-medium text-[#6B7280]">Seleccionar mes:</p>
-                <select 
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg focus:ring-2 focus:ring-[#C62828] text-xs"
-                    value={mesSeleccionado}
-                    onChange={handleMesChange}
+                <Select
+                    value={mesSeleccionado || 'todos'}
+                    onValueChange={handleMesChange}
                 >
-                    <option value="">Selecciona un mes</option>
-                    {meses.map(mes => (
-                        <option key={mes.valor} value={mes.valor}>{mes.nombre}</option>
-                    ))}
-                </select>
+                    <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Selecciona un mes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="todos">Selecciona un mes</SelectItem>
+                        {meses.map((mes) => (
+                            <SelectItem key={mes.valor} value={mes.valor}>
+                                {mes.nombre}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                 {mesSeleccionado && (
                     <button
                         onClick={handleNotasClick}
-                        className="w-full px-3 py-2 bg-[#C62828] hover:bg-[#B71C1C] text-white rounded-lg transition-colors font-semibold text-xs"
+                        className="w-full px-3 py-2 bg-sidebar-bg hover:bg-sidebar-hover text-white rounded-lg transition-colors font-semibold text-xs"
                     >
                         Notas
                     </button>
                 )}
             </div>
-
-            <Modal
-                isOpen={showModal}
-                onClose={() => setShowModal(false)}
-                title="Mes no seleccionado"
-                message="Por favor selecciona un mes antes de continuar."
-                type="warning"
-            />
         </>
     );
 };
@@ -111,7 +116,7 @@ export const NotasIndex = () => {
         return (
             <>
                 <div className="flex items-center justify-center h-screen">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C62828]"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sidebar-bg"></div>
                 </div>
             </>
         );

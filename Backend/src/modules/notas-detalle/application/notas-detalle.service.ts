@@ -102,6 +102,11 @@ export class NotasDetalleService {
     let successCount = 0;
     let errorCount = 0;
     const errors: Array<Record<string, unknown>> = [];
+    const validas: Array<{
+      evaluacionId: number;
+      estudianteId: number;
+      puntaje: number;
+    }> = [];
 
     for (const nota of dto.notas) {
       const puntajeError = this.validatePuntaje(nota.puntaje);
@@ -115,20 +120,23 @@ export class NotasDetalleService {
         continue;
       }
 
+      validas.push({
+        evaluacionId: nota.evaluacion_id,
+        estudianteId: nota.estudiante_id,
+        puntaje: nota.puntaje,
+      });
+    }
+
+    if (validas.length > 0) {
       try {
-        await this.gradeRepository.createNotaDetalle({
-          evaluacionId: nota.evaluacion_id,
-          estudianteId: nota.estudiante_id,
-          puntaje: nota.puntaje,
-        });
-        successCount += 1;
+        await this.gradeRepository.createNotasDetalleBulk(validas);
+        successCount = validas.length;
       } catch (e: unknown) {
-        errorCount += 1;
+        errorCount += validas.length;
         errors.push({
-          evaluacion_id: nota.evaluacion_id,
-          estudiante_id: nota.estudiante_id,
           error: e instanceof Error ? e.message : String(e),
         });
+        successCount = 0;
       }
     }
 

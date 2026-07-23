@@ -22,7 +22,10 @@ export class DocenteController {
   }
 
   @Get('cursos/:cursoId/estudiantes')
-  estudiantesCurso(@Param('cursoId', ParseIntPipe) cursoId: number) {
-    return this.docenteService.estudiantesCurso(cursoId);
+  estudiantesCurso(
+    @Param('cursoId', ParseIntPipe) cursoId: number,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.docenteService.estudiantesCurso(cursoId, user.usuario_id);
   }
 }

@@ -23,7 +23,7 @@ export class PromedioCalculatorService {
   }
 
   calcularPromedioPonderado(notas: NotaPonderada[]): number {
-    const weighted = notas.filter((n) => n.peso != null && n.peso > 0);
+    const weighted = notas.filter((n) => n.peso != null && Number(n.peso) > 0);
     if (weighted.length === 0) {
       return this.calcularPromedioSimple(notas.map((n) => n.puntaje));
     }
@@ -41,15 +41,10 @@ export class PromedioCalculatorService {
   }
 
   calcularPromedioUnidad(notas: NotaPonderada[]): number {
-    const pesos = notas
-      .map((n) => (n.peso == null ? 0 : Number(n.peso)))
-      .filter((p) => p > 0);
-    const totalPeso = pesos.reduce((acc, p) => acc + p, 0);
-
-    if (totalPeso === 100) {
+    const conPeso = notas.some((n) => n.peso != null && Number(n.peso) > 0);
+    if (conPeso) {
       return this.calcularPromedioPonderado(notas);
     }
-
     return this.calcularPromedioSimple(notas.map((n) => n.puntaje));
   }
 

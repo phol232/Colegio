@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Modal } from './Modal';
 import { toId } from '../utils/ids';
+import { useToastStore } from '../stores/toastStore';
 
 interface Evaluacion {
     id: number;
@@ -18,7 +18,6 @@ interface Estudiante {
 
 interface Promedio {
     promedio_numerico: number;
-    promedio_literal: string | null;
     total_evaluaciones: number;
 }
 
@@ -31,6 +30,10 @@ interface GradesTableProps {
     onNotaChange: (estudianteId: number, evaluacionId: number, puntaje: number | null) => void;
     onGuardarNotas?: () => void;
     guardando?: boolean;
+    showPromedio?: boolean;
+    showFooter?: boolean;
+    emptyMessage?: string;
+    readOnly?: boolean;
 }
 
 export const GradesTable: React.FC<GradesTableProps> = ({
@@ -41,21 +44,16 @@ export const GradesTable: React.FC<GradesTableProps> = ({
     courseColor,
     onNotaChange,
     onGuardarNotas,
-    guardando = false
+    guardando = false,
+    showPromedio = true,
+    showFooter = true,
+    emptyMessage,
+    readOnly = false,
 }) => {
     const [editando, setEditando] = useState<string | null>(null);
     const [valorTemp, setValorTemp] = useState<string>('');
-    const [modalConfig, setModalConfig] = useState<{
-        isOpen: boolean;
-        title: string;
-        message: string;
-        type: 'success' | 'error' | 'warning' | 'info';
-    }>({
-        isOpen: false,
-        title: '',
-        message: '',
-        type: 'info'
-    });
+    
+    const showToast = useToastStore((s) => s.show);
 
     const getNotaKey = (estudianteId: number, evaluacionId: number) => {
         return `${estudianteId}-${evaluacionId}`;
@@ -67,6 +65,7 @@ export const GradesTable: React.FC<GradesTableProps> = ({
     };
 
     const handleCeldaClick = (estudianteId: number, evaluacionId: number) => {
+        if (readOnly) return;
         const key = getNotaKey(estudianteId, evaluacionId);
         const nota = getNota(estudianteId, evaluacionId);
         setEditando(key);
@@ -92,12 +91,7 @@ export const GradesTable: React.FC<GradesTableProps> = ({
 
         // Validar que sea un número válido
         if (isNaN(valor)) {
-            setModalConfig({
-                isOpen: true,
-                title: 'Valor inválido',
-                message: 'Por favor ingresa un número válido.',
-                type: 'warning'
-            });
+            showToast('Por favor ingresa un número válido.', 'warning', 3500, 'Valor inválido');
             setEditando(null);
             setValorTemp('');
             return;
@@ -105,12 +99,7 @@ export const GradesTable: React.FC<GradesTableProps> = ({
 
         // Validar rango 0-20
         if (valor < 0 || valor > 20) {
-            setModalConfig({
-                isOpen: true,
-                title: 'Nota fuera de rango',
-                message: 'La nota debe estar entre 0 y 20.',
-                type: 'warning'
-            });
+            showToast('La nota debe estar entre 0 y 20.', 'warning', 3500, 'Nota fuera de rango');
             setEditando(null);
             setValorTemp('');
             return;
@@ -181,7 +170,7 @@ export const GradesTable: React.FC<GradesTableProps> = ({
     if (evaluaciones.length === 0) {
         return (
             <div className="text-center py-8 text-[#6B7280]">
-                <p>No hay evaluaciones creadas para esta unidad.</p>
+                <p>{emptyMessage ?? 'No hay evaluaciones creadas para esta unidad.'}</p>
                 <p className="text-sm mt-2">Crea evaluaciones para empezar a registrar notas.</p>
             </div>
         );
@@ -208,13 +197,15 @@ export const GradesTable: React.FC<GradesTableProps> = ({
                                         <div>{evaluacion.nombre}</div>
                                         <div className="text-[10px] text-[#6B7280] font-normal mt-0.5">
                                             {evaluacion.tipo_evaluacion}
-                                            {evaluacion.peso && ` (${evaluacion.peso}%)`}
+                                            {evaluacion.peso != null && ` (${evaluacion.peso}%)`}
                                         </div>
                                     </th>
                                 ))}
-                                <th className="sticky right-0 z-10 bg-[#F5F7FA] px-3 py-2 text-center text-xs font-semibold text-[#0E2B5C] border-l border-[#E5E7EB] min-w-[120px]">
-                                    Promedio
-                                </th>
+                                {showPromedio && (
+                                    <th className="sticky right-0 z-10 bg-[#F5F7FA] px-3 py-2 text-center text-xs font-semibold text-[#0E2B5C] border-l border-[#E5E7EB] min-w-[120px]">
+                                        Promedio
+                                    </th>
+                                )}
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-[#E5E7EB]">
@@ -257,9 +248,9 @@ export const GradesTable: React.FC<GradesTableProps> = ({
                                                 <td
                                                     key={evaluacionId}
                                                     className={`px-3 py-2 text-center ${estado.bg}`}
-                                                    onClick={() => !isEditando && handleCeldaClick(estudianteId, evaluacionId)}
+                                                    onClick={() => !readOnly && !isEditando && handleCeldaClick(estudianteId, evaluacionId)}
                                                 >
-                                                    {isEditando ? (
+                                                    {isEditando && !readOnly ? (
                                                         <input
                                                             type="text"
                                                             inputMode="decimal"
@@ -272,27 +263,29 @@ export const GradesTable: React.FC<GradesTableProps> = ({
                                                             className="w-16 px-2 py-1 border border-[#17A2E5] rounded text-center text-sm focus:ring-2 focus:ring-[#17A2E5]"
                                                         />
                                                     ) : (
-                                                        <span className={`text-sm font-medium ${estado.color} cursor-pointer hover:underline`}>
+                                                        <span className={`text-sm font-medium ${estado.color}${readOnly ? '' : ' cursor-pointer hover:underline'}`}>
                                                             {nota !== null ? nota.toFixed(1) : '-'}
                                                         </span>
                                                     )}
                                                 </td>
                                             );
                                         })}
-                                        <td className={`sticky right-0 z-10 px-3 py-2 text-center border-l border-[#E5E7EB] ${estadoPromedio?.bg || 'bg-gray-50'}`}>
-                                            {promedio ? (
-                                                <div>
-                                                    <div className={`text-sm font-bold ${estadoPromedio?.color}`}>
-                                                        {promedio.promedio_numerico.toFixed(2)}
+                                        {showPromedio && (
+                                            <td className={`sticky right-0 z-10 px-3 py-2 text-center border-l border-[#E5E7EB] ${estadoPromedio?.bg || 'bg-gray-50'}`}>
+                                                {promedio ? (
+                                                    <div>
+                                                        <div className={`text-sm font-bold ${estadoPromedio?.color}`}>
+                                                            {promedio.promedio_numerico.toFixed(2)}
+                                                        </div>
+                                                        <div className="text-[10px] text-[#6B7280] mt-0.5">
+                                                            {promedio.total_evaluaciones}/{evaluaciones.length}
+                                                        </div>
                                                     </div>
-                                                    <div className="text-[10px] text-[#6B7280] mt-0.5">
-                                                        {promedio.total_evaluaciones}/{evaluaciones.length}
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <span className="text-xs text-gray-400">-</span>
-                                            )}
-                                        </td>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">-</span>
+                                                )}
+                                            </td>
+                                        )}
                                     </tr>
                                 );
                             })}
@@ -302,6 +295,7 @@ export const GradesTable: React.FC<GradesTableProps> = ({
             </div>
 
             {/* Leyenda y Botón de Guardar */}
+            {showFooter && (
             <div className="mt-3 flex items-center justify-between">
                 <div className="flex items-center gap-4 text-xs text-[#6B7280]">
                     <div className="flex items-center gap-1">
@@ -318,11 +312,11 @@ export const GradesTable: React.FC<GradesTableProps> = ({
                     </div>
                 </div>
                 
-                {onGuardarNotas && (
+                {onGuardarNotas && !readOnly && (
                     <button
                         onClick={onGuardarNotas}
                         disabled={guardando}
-                        className="px-6 py-2.5 bg-[#C62828] hover:bg-[#B71C1C] text-white rounded-lg transition-colors disabled:bg-[#EAB0B0] disabled:cursor-not-allowed font-semibold flex items-center gap-2"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-sidebar-bg px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sidebar-hover disabled:pointer-events-none disabled:opacity-50"
                     >
                         {guardando ? (
                             <>
@@ -340,15 +334,7 @@ export const GradesTable: React.FC<GradesTableProps> = ({
                     </button>
                 )}
             </div>
-
-            {/* Modal de notificaciones */}
-            <Modal
-                isOpen={modalConfig.isOpen}
-                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-                title={modalConfig.title}
-                message={modalConfig.message}
-                type={modalConfig.type}
-            />
+            )}
         </div>
     );
 };

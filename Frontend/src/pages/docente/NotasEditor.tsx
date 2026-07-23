@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { EvaluacionManager } from '../../components/EvaluacionManager';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { GradesTable } from '../../components/GradesTable';
-import { Modal } from '../../components/Modal';
 import { getCourseColor } from '../../utils/courseColors';
 import { calcularPromedioEstudiante } from '../../utils/promedioCalculator';
+import { nombreMesNotas, BTN_PRIMARY } from '../../utils/evaluacionNotas';
+import { getColorTipo } from '../../utils/tiposEvaluacion';
 import { sameId, toId } from '../../utils/ids';
+import { useToastStore } from '../../stores/toastStore';
 import api from '../../services/api';
 
 interface Curso {
@@ -42,26 +43,16 @@ interface NotaDetalle {
 
 interface Promedio {
     promedio_numerico: number;
-    promedio_literal: string;
     total_evaluaciones: number;
 }
 
-const MESES = {
-    3: 'Marzo',
-    4: 'Abril',
-    5: 'Mayo',
-    6: 'Junio',
-    7: 'Julio',
-    8: 'Agosto',
-    9: 'Septiembre',
-    10: 'Octubre',
-    11: 'Noviembre',
-    12: 'Diciembre'
-};
-
 export const NotasEditor = () => {
     const { cursoId, mes } = useParams<{ cursoId: string; mes: string }>();
+    const [searchParams] = useSearchParams();
+    const location = useLocation();
     const navigate = useNavigate();
+    const tipoSeleccionado = (searchParams.get('tipo') ?? '').trim();
+    const soloLectura = location.pathname.endsWith('/ver');
 
     const [curso, setCurso] = useState<Curso | null>(null);
     const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
@@ -74,22 +65,18 @@ export const NotasEditor = () => {
     const [cargandoDatos, setCargandoDatos] = useState(false);
     const [guardando, setGuardando] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [modalConfig, setModalConfig] = useState<{
-        isOpen: boolean;
-        title: string;
-        message: string;
-        type: 'success' | 'error' | 'warning' | 'info';
-        onConfirm?: () => void;
-    }>({
-        isOpen: false,
-        title: '',
-        message: '',
-        type: 'info'
-    });
+    
+    const showToast = useToastStore((s) => s.show);
+
+    const hubPath = `/docente/notas/curso/${cursoId}/mes/${mes}`;
 
     useEffect(() => {
+        if (!tipoSeleccionado) {
+            navigate(hubPath, { replace: true });
+            return;
+        }
         cargarDatos();
-    }, [cursoId, mes]);
+    }, [cursoId, mes, tipoSeleccionado]);
 
     const cargarDatos = async () => {
         if (!cursoId || !mes) return;
@@ -112,11 +99,16 @@ export const NotasEditor = () => {
             setEstudiantes(respEstudiantes.data.data || []);
 
             const respEvaluaciones = await api.get(`/evaluaciones/curso/${cursoId}/mes/${mes}`);
-            setEvaluaciones(respEvaluaciones.data.data || []);
+            const todas: Evaluacion[] = respEvaluaciones.data.data || [];
+            // Solo el tipo seleccionado en esta pantalla (Examen, Práctica, etc.)
+            const delTipo = todas.filter(
+                (e) => e.tipo_evaluacion.trim().toLowerCase() === tipoSeleccionado.toLowerCase(),
+            );
+            setEvaluaciones(delTipo);
 
             const notasMap = new Map<string, number>();
 
-            for (const evaluacion of respEvaluaciones.data.data || []) {
+            for (const evaluacion of delTipo) {
                 const respNotas = await api.get(`/notas-detalle/evaluacion/${evaluacion.id}`);
                 const notasEval = respNotas.data.data || [];
 
@@ -130,18 +122,13 @@ export const NotasEditor = () => {
             setNotasOriginales(new Map(notasMap));
             setNotasModificadas(new Set());
 
-            calcularPromediosLocales(respEvaluaciones.data.data || [], notasMap, respEstudiantes.data.data || []);
+            calcularPromediosLocales(delTipo, notasMap, respEstudiantes.data.data || []);
 
         } catch (error: any) {
             console.error('Error al cargar datos:', error);
             const errorMsg = error.response?.data?.message || 'Error al cargar los datos';
             setError(errorMsg);
-            setModalConfig({
-                isOpen: true,
-                title: 'Error al cargar datos',
-                message: errorMsg,
-                type: 'error'
-            });
+            showToast(errorMsg, 'error', 3500, 'Error al cargar datos');
         } finally {
             setLoading(false);
             setCargandoDatos(false);
@@ -194,12 +181,9 @@ export const NotasEditor = () => {
 
     const guardarNotas = async () => {
         if (!curso || notasModificadas.size === 0) {
-            setModalConfig({
-                isOpen: true,
-                title: notasModificadas.size === 0 ? 'Sin cambios' : 'Error',
-                message: notasModificadas.size === 0 ? 'No hay cambios para guardar.' : 'Error: No hay curso seleccionado',
-                type: 'warning'
-            });
+            const title = notasModificadas.size === 0 ? 'Sin cambios' : 'Error';
+            const message = notasModificadas.size === 0 ? 'No hay cambios para guardar.' : 'Error: No hay curso seleccionado';
+            showToast(message, 'warning', 3500, title);
             return;
         }
 
@@ -211,12 +195,7 @@ export const NotasEditor = () => {
                 const [estudiante_id, evaluacion_id] = key.split('-').map(Number);
                 
                 if (puntaje < 0 || puntaje > 20) {
-                    setModalConfig({
-                        isOpen: true,
-                        title: 'Nota inválida',
-                        message: `La nota ${puntaje} no es válida. Debe estar entre 0 y 20.`,
-                        type: 'error'
-                    });
+                    showToast(`La nota ${puntaje} no es válida. Debe estar entre 0 y 20.`, 'error', 3500, 'Nota inválida');
                     return;
                 }
                 
@@ -225,12 +204,7 @@ export const NotasEditor = () => {
         });
 
         if (notasArray.length === 0) {
-            setModalConfig({
-                isOpen: true,
-                title: 'Sin notas válidas',
-                message: 'No hay notas válidas para guardar.',
-                type: 'warning'
-            });
+            showToast('No hay notas válidas para guardar.', 'warning', 3500, 'Sin notas válidas');
             return;
         }
 
@@ -241,12 +215,7 @@ export const NotasEditor = () => {
             const response = await api.post('/notas-detalle/bulk', { notas: notasArray });
 
             if (response.data.success) {
-                setModalConfig({
-                    isOpen: true,
-                    title: '✓ Notas guardadas exitosamente',
-                    message: `Se han registrado ${notasArray.length} nota${notasArray.length !== 1 ? 's' : ''} correctamente.`,
-                    type: 'success'
-                });
+                showToast(`Se han registrado ${notasArray.length} nota${notasArray.length !== 1 ? 's' : ''} correctamente.`, 'success', 3500, 'Notas guardadas');
                 const nuevasOriginales = new Map(notasOriginales);
                 notasArray.forEach(nota => {
                     const key = `${nota.estudiante_id}-${nota.evaluacion_id}`;
@@ -255,56 +224,24 @@ export const NotasEditor = () => {
                 setNotasOriginales(nuevasOriginales);
                 setNotasModificadas(new Set());
             } else {
-                setModalConfig({
-                    isOpen: true,
-                    title: 'Error al guardar',
-                    message: response.data.message || 'Error al guardar notas',
-                    type: 'error'
-                });
+                showToast(response.data.message || 'Error al guardar notas', 'error', 3500, 'Error al guardar');
             }
         } catch (error: any) {
             const errorMsg = error.response?.data?.message ||
                 error.response?.data?.errors?.notas?.[0] ||
                 'Error al guardar notas. Por favor intenta nuevamente.';
             setError(errorMsg);
-            setModalConfig({
-                isOpen: true,
-                title: 'Error al guardar notas',
-                message: errorMsg,
-                type: 'error'
-            });
+            showToast(errorMsg, 'error', 3500, 'Error al guardar notas');
         } finally {
             setGuardando(false);
         }
     };
 
-    const handleEvaluacionCreated = (evaluacion: Evaluacion) => {
-        setEvaluaciones([...evaluaciones, evaluacion]);
-    };
-
-    const handleEvaluacionUpdated = (evaluacion: Evaluacion) => {
-        setEvaluaciones(evaluaciones.map(e => sameId(e.id, evaluacion.id) ? evaluacion : e));
-    };
-
-    const handleEvaluacionDeleted = (evaluacionId: number) => {
-        const idNorm = toId(evaluacionId);
-        setEvaluaciones(evaluaciones.filter(e => !sameId(e.id, idNorm)));
-
-        const nuevasNotas = new Map(notas);
-        Array.from(nuevasNotas.keys()).forEach(key => {
-            if (key.endsWith(`-${idNorm}`)) {
-                nuevasNotas.delete(key);
-            }
-        });
-        setNotas(nuevasNotas);
-        calcularPromediosLocales(evaluaciones.filter(e => !sameId(e.id, idNorm)), nuevasNotas, estudiantes);
-    };
-
-    if (loading) {
+    if (loading || !tipoSeleccionado) {
         return (
             <>
                 <div className="flex items-center justify-center h-screen">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C62828]"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sidebar-bg"></div>
                 </div>
             </>
         );
@@ -317,8 +254,8 @@ export const NotasEditor = () => {
                     <div className="text-center">
                         <p className="text-red-600 mb-4">Curso no encontrado</p>
                         <button
-                            onClick={() => navigate('/docente/notas')}
-                            className="px-4 py-2 bg-[#C62828] text-white rounded-lg hover:bg-[#B71C1C]"
+                            onClick={() => navigate(hubPath)}
+                            className={BTN_PRIMARY}
                         >
                             Volver
                         </button>
@@ -329,7 +266,9 @@ export const NotasEditor = () => {
     }
 
     const courseColor = getCourseColor(curso.nombre);
-    const nombreMes = MESES[parseInt(mes!) as keyof typeof MESES] || `Mes ${mes}`;
+    const nombreMes = nombreMesNotas(parseInt(mes!, 10));
+    const tipoColors = getColorTipo(tipoSeleccionado);
+    const pesoTipo = evaluaciones.reduce((s, e) => s + (e.peso ?? 0), 0);
 
     return (
         <>
@@ -338,8 +277,10 @@ export const NotasEditor = () => {
                     <div className="max-w-[1600px] mx-auto px-6 py-4">
                         <div className="flex items-center gap-4">
                             <button
-                                onClick={() => navigate('/docente/notas')}
+                                onClick={() => navigate(hubPath)}
                                 className="text-[#6B7280] hover:text-[#1F2937] transition-colors"
+                                type="button"
+                                aria-label="Volver"
                             >
                                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -360,32 +301,25 @@ export const NotasEditor = () => {
                 <div className="bg-[#EFF6FF] border-b border-[#17A2E5]">
                     <div className="max-w-[1600px] mx-auto px-6 py-3">
                         <p className="text-sm text-[#0E2B5C]">
-                            ℹ️ Las notas deben estar en el rango de 0 a 20. Nota mínima aprobatoria: 11
+                            {soloLectura
+                                ? 'Vista de solo lectura. Las notas no se pueden editar aquí.'
+                                : 'Las notas deben estar en el rango de 0 a 20. Nota mínima aprobatoria: 11'}
                         </p>
                     </div>
                 </div>
 
                 <div className="max-w-[1600px] mx-auto px-6 py-6">
-                    <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6 mb-6">
-                        <EvaluacionManager
-                            cursoId={toId(cursoId!)}
-                            mes={toId(mes!)}
-                            evaluaciones={evaluaciones}
-                            onEvaluacionCreated={handleEvaluacionCreated}
-                            onEvaluacionUpdated={handleEvaluacionUpdated}
-                            onEvaluacionDeleted={handleEvaluacionDeleted}
-                        />
-                    </div>
-
-                    <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6">
-                        {cargandoDatos ? (
+                    {cargandoDatos ? (
+                        <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6">
                             <div className="flex items-center justify-center py-12">
                                 <div className="text-center">
                                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C62828] mx-auto mb-4"></div>
                                     <p className="text-sm text-[#6B7280]">Cargando datos...</p>
                                 </div>
                             </div>
-                        ) : error ? (
+                        </div>
+                    ) : error ? (
+                        <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6">
                             <div className="flex items-center justify-center py-12">
                                 <div className="text-center">
                                     <svg className="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -394,13 +328,27 @@ export const NotasEditor = () => {
                                     <p className="text-sm text-red-600 mb-2">{error}</p>
                                     <button
                                         onClick={() => cargarDatos()}
-                                        className="px-4 py-2 bg-[#C62828] text-white rounded-lg text-sm hover:bg-[#B71C1C]"
+                                        className={BTN_PRIMARY}
+                                        type="button"
                                     >
                                         Reintentar
                                     </button>
                                 </div>
                             </div>
-                        ) : (
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-lg shadow border border-[#E5E7EB] p-6">
+                            <div className="mb-4 flex flex-wrap items-center gap-2">
+                                <h2 className="text-base font-semibold text-[#0E2B5C]">{tipoSeleccionado}</h2>
+                                <span className={`rounded px-2 py-0.5 text-xs font-medium ${tipoColors.bg} ${tipoColors.text}`}>
+                                    Peso del tipo: {pesoTipo}%
+                                </span>
+                                {soloLectura && (
+                                    <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                                        Solo lectura
+                                    </span>
+                                )}
+                            </div>
                             <GradesTable
                                 evaluaciones={evaluaciones}
                                 estudiantes={estudiantes}
@@ -408,11 +356,14 @@ export const NotasEditor = () => {
                                 promedios={promedios}
                                 courseColor={courseColor}
                                 onNotaChange={handleNotaChange}
-                                onGuardarNotas={guardarNotas}
+                                onGuardarNotas={soloLectura ? undefined : guardarNotas}
                                 guardando={guardando}
+                                showPromedio
+                                readOnly={soloLectura}
+                                emptyMessage={`No hay evaluaciones de tipo "${tipoSeleccionado}" para este mes.`}
                             />
-                        )}
-                    </div>
+                        </div>
+                    )}
 
                     {promedios.size > 0 && (
                         <div className="mt-6 bg-white rounded-lg shadow border border-[#E5E7EB] p-6">
@@ -443,15 +394,6 @@ export const NotasEditor = () => {
                     )}
                 </div>
             </div>
-
-            {/* Modal de notificaciones */}
-            <Modal
-                isOpen={modalConfig.isOpen}
-                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-                title={modalConfig.title}
-                message={modalConfig.message}
-                type={modalConfig.type}
-            />
         </>
     );
 };

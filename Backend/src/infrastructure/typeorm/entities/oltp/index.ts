@@ -12,6 +12,9 @@ import { PromedioUnidadEntity } from './promedio-unidad.entity';
 import { PadreEstudianteEntity } from './padre-estudiante.entity';
 import { ConfiguracionSistemaEntity } from './configuracion-sistema.entity';
 import { NotaLegacyEntity } from './nota-legacy.entity';
+import { PeriodoAcademicoEntity } from './periodo-academico.entity';
+import { MatriculaEntity } from './matricula.entity';
+import { DecisionPromocionEntity } from './decision-promocion.entity';
 
 export { GradoEntity } from './grado.entity';
 export { SeccionEntity } from './seccion.entity';
@@ -27,6 +30,9 @@ export { PromedioUnidadEntity } from './promedio-unidad.entity';
 export { PadreEstudianteEntity } from './padre-estudiante.entity';
 export { ConfiguracionSistemaEntity } from './configuracion-sistema.entity';
 export { NotaLegacyEntity } from './nota-legacy.entity';
+export { PeriodoAcademicoEntity } from './periodo-academico.entity';
+export { MatriculaEntity } from './matricula.entity';
+export { DecisionPromocionEntity } from './decision-promocion.entity';
 
 export const oltpEntities = [
   GradoEntity,
@@ -43,6 +49,9 @@ export const oltpEntities = [
   PadreEstudianteEntity,
   ConfiguracionSistemaEntity,
   NotaLegacyEntity,
+  PeriodoAcademicoEntity,
+  MatriculaEntity,
+  DecisionPromocionEntity,
 ];
 
 export const OLTP_ENTITIES = oltpEntities;

@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { ok } from '../../../common/dto/api-response';
@@ -220,18 +220,51 @@ export class DocenteService {
     }
   }
 
-  async estudiantesCurso(cursoId: number) {
+  async estudiantesCurso(cursoId: number, docenteId: number) {
     try {
-      const estudiantes = await this.estudianteCursoRepo
+      const curso = await this.cursoRepo.findOne({
+        where: { id: cursoId },
+        relations: ['periodoAcademico'],
+      });
+      if (!curso || Number(curso.docenteId) !== docenteId) {
+        throw new ForbiddenException({
+          success: false,
+          message: 'No tienes acceso a este curso',
+        });
+      }
+
+      const anio =
+        curso.periodoAcademico?.anio ??
+        (await this.dataSource
+          .createQueryBuilder()
+          .select('p.anio', 'anio')
+          .from('periodos_academicos', 'p')
+          .where('p.id = :id', { id: curso.periodoAcademicoId })
+          .getRawOne<{ anio: number }>())?.anio;
+
+      const estudiantesQb = this.estudianteCursoRepo
         .createQueryBuilder('ec')
         .innerJoin('ec.estudiante', 'u')
+        .innerJoin(
+          'matriculas',
+          'm',
+          'm.id = ec.matricula_id AND m.estado = :estadoActiva',
+          { estadoActiva: 'activa' },
+        )
         .select(['u.id AS id', 'u.name AS name', 'u.email AS email'])
-        .where('ec.curso_id = :cursoId', { cursoId })
-        .orderBy('u.name', 'ASC')
-        .getRawMany();
+        .where('ec.curso_id = :cursoId', { cursoId });
+
+      if (anio != null) {
+        estudiantesQb.andWhere('ec.anio_academico = :anio', { anio });
+      }
+
+      const estudiantes = await estudiantesQb.orderBy('u.name', 'ASC').getRawMany();
 
       return ok(estudiantes);
-    } catch {
+    } catch (error) {
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
       throw new InternalServerErrorException({
         success: false,
         message: 'Error al obtener estudiantes',

@@ -1,11 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
   DashboardStats,
   IAdminRepository,
+  PeriodoAcademicoConfig,
   SystemConfig,
+  UpdateSystemConfigInput,
 } from '@/domain/ports/admin.repository.port';
+import { PeriodoAcademicoEntity } from '../entities/oltp/periodo-academico.entity';
 import { UserRole } from '@/domain/ports/user.repository.port';
 import { ConfiguracionSistemaEntity } from '../entities/oltp/configuracion-sistema.entity';
 import { CursoEntity } from '../entities/oltp/curso.entity';
@@ -30,7 +33,55 @@ export class TypeOrmAdminRepository implements IAdminRepository {
     private readonly catalogoRepo: Repository<CursoCatalogoEntity>,
     @InjectRepository(ConfiguracionSistemaEntity, OLTP_CONNECTION)
     private readonly configRepo: Repository<ConfiguracionSistemaEntity>,
+    @InjectRepository(PeriodoAcademicoEntity, OLTP_CONNECTION)
+    private readonly periodoRepo: Repository<PeriodoAcademicoEntity>,
   ) {}
+
+  private mapPeriodo(entity: PeriodoAcademicoEntity): PeriodoAcademicoConfig {
+    return {
+      id: Number(entity.id),
+      anio: entity.anio,
+      estado: entity.estado,
+      matriculaInicio: entity.matriculaInicio,
+      matriculaFin: entity.matriculaFin,
+    };
+  }
+
+  private async resolvePeriodoActivo(
+    config: ConfiguracionSistemaEntity,
+  ): Promise<PeriodoAcademicoConfig | null> {
+    if (config.periodoAcademicoActivoId) {
+      const periodo = await this.periodoRepo.findOne({
+        where: { id: config.periodoAcademicoActivoId },
+      });
+      if (periodo) return this.mapPeriodo(periodo);
+    }
+
+    const periodo = await this.periodoRepo.findOne({
+      where: { anio: config.anioAcademico },
+    });
+    return periodo ? this.mapPeriodo(periodo) : null;
+  }
+
+  private mapSystemConfig(
+    row: ConfiguracionSistemaEntity,
+    periodo: PeriodoAcademicoConfig | null,
+  ): SystemConfig {
+    return {
+      id: Number(row.id),
+      nombreInstitucion: row.nombreInstitucion,
+      anioAcademico: row.anioAcademico,
+      periodoEvaluacion: row.periodoEvaluacion,
+      modoMantenimiento: row.modoMantenimiento,
+      periodoAcademicoActivoId:
+        row.periodoAcademicoActivoId != null
+          ? Number(row.periodoAcademicoActivoId)
+          : null,
+      periodoAcademico: periodo,
+      gradoIngresoId:
+        row.gradoIngresoId != null ? Number(row.gradoIngresoId) : null,
+    };
+  }
 
   async getDashboardStats(): Promise<DashboardStats> {
     const [
@@ -125,61 +176,76 @@ export class TypeOrmAdminRepository implements IAdminRepository {
     const row = config[0];
     if (!row) return null;
 
-    return {
-      id: Number(row.id),
-      nombreInstitucion: row.nombreInstitucion,
-      anioAcademico: row.anioAcademico,
-      periodoEvaluacion: row.periodoEvaluacion,
-      modoMantenimiento: row.modoMantenimiento,
-    };
+    const periodo = await this.resolvePeriodoActivo(row);
+    return this.mapSystemConfig(row, periodo);
   }
 
   async updateConfiguracion(
-    input: Partial<SystemConfig>,
+    input: UpdateSystemConfigInput,
   ): Promise<SystemConfig> {
-    const current = await this.configRepo.findOne({
-      order: { id: 'ASC' },
-      where: {},
-    });
+    return this.configRepo.manager.transaction(async (manager) => {
+      const configRepo = manager.getRepository(ConfiguracionSistemaEntity);
+      const periodoRepo = manager.getRepository(PeriodoAcademicoEntity);
 
-    if (!current) {
-      const created = await this.configRepo.save({
-        nombreInstitucion: input.nombreInstitucion ?? 'Colegio Frederick',
-        anioAcademico: input.anioAcademico ?? new Date().getFullYear(),
-        periodoEvaluacion: input.periodoEvaluacion ?? 'trimestral',
-        modoMantenimiento: input.modoMantenimiento ?? false,
+      let current = await configRepo.findOne({
+        order: { id: 'ASC' },
+        where: {},
       });
-      return {
-        id: Number(created.id),
-        nombreInstitucion: created.nombreInstitucion,
-        anioAcademico: created.anioAcademico,
-        periodoEvaluacion: created.periodoEvaluacion,
-        modoMantenimiento: created.modoMantenimiento,
-      };
-    }
 
-    if (input.nombreInstitucion !== undefined) {
-      current.nombreInstitucion = input.nombreInstitucion;
-    }
-    if (input.anioAcademico !== undefined) {
-      current.anioAcademico = input.anioAcademico;
-    }
-    if (input.periodoEvaluacion !== undefined) {
-      current.periodoEvaluacion = input.periodoEvaluacion;
-    }
-    if (input.modoMantenimiento !== undefined) {
-      current.modoMantenimiento = input.modoMantenimiento;
-    }
-    current.updatedAt = new Date();
+      if (!current) {
+        current = configRepo.create({
+          nombreInstitucion: input.nombreInstitucion ?? 'Colegio Frederick',
+          anioAcademico: input.anioAcademico ?? new Date().getFullYear(),
+          periodoEvaluacion: input.periodoEvaluacion ?? 'trimestral',
+          modoMantenimiento: input.modoMantenimiento ?? false,
+        });
+      } else {
+        if (input.nombreInstitucion !== undefined) {
+          current.nombreInstitucion = input.nombreInstitucion;
+        }
+        if (input.anioAcademico !== undefined) {
+          current.anioAcademico = input.anioAcademico;
+        }
+        if (input.periodoEvaluacion !== undefined) {
+          current.periodoEvaluacion = input.periodoEvaluacion;
+        }
+        if (input.modoMantenimiento !== undefined) {
+          current.modoMantenimiento = input.modoMantenimiento;
+        }
+        if (input.gradoIngresoId !== undefined) {
+          current.gradoIngresoId = input.gradoIngresoId;
+        }
+      }
 
-    const saved = await this.configRepo.save(current);
-    return {
-      id: Number(saved.id),
-      nombreInstitucion: saved.nombreInstitucion,
-      anioAcademico: saved.anioAcademico,
-      periodoEvaluacion: saved.periodoEvaluacion,
-      modoMantenimiento: saved.modoMantenimiento,
-    };
+      const anio = current.anioAcademico;
+      let periodo = await periodoRepo.findOne({ where: { anio } });
+
+      if (!periodo) {
+        periodo = periodoRepo.create({
+          anio,
+          estado: input.periodoAcademicoEstado ?? 'planificacion',
+          matriculaInicio: input.matriculaInicio ?? null,
+          matriculaFin: input.matriculaFin ?? null,
+        });
+      } else {
+        if (input.periodoAcademicoEstado !== undefined) {
+          periodo.estado = input.periodoAcademicoEstado;
+        }
+        if (input.matriculaInicio !== undefined) {
+          periodo.matriculaInicio = input.matriculaInicio;
+        }
+        if (input.matriculaFin !== undefined) {
+          periodo.matriculaFin = input.matriculaFin;
+        }
+      }
+
+      periodo = await periodoRepo.save(periodo);
+      current.periodoAcademicoActivoId = periodo.id;
+      current.updatedAt = new Date();
+
+      const saved = await configRepo.save(current);
+      return this.mapSystemConfig(saved, this.mapPeriodo(periodo));
+    });
   }
 
   async listGrados(): Promise<Record<string, unknown>[]> {
@@ -257,10 +323,14 @@ export class TypeOrmAdminRepository implements IAdminRepository {
   }
 
   async listAllStudents(): Promise<Record<string, unknown>[]> {
-    return this.userRepo.find({
+    const rows = await this.userRepo.find({
       where: { role: 'estudiante' as UserRole },
       order: { name: 'ASC' },
-    }) as unknown as Record<string, unknown>[];
+    });
+    return rows.map((u) => ({
+      ...(u as unknown as Record<string, unknown>),
+      asignado: u.gradoId != null && u.seccionId != null,
+    }));
   }
 
   async listAvailableStudents(): Promise<Record<string, unknown>[]> {
@@ -370,6 +440,11 @@ export class TypeOrmAdminRepository implements IAdminRepository {
     const seccion = await this.seccionRepo.findOneOrFail({
       where: { id: seccionId },
     });
+    const config = await this.configRepo.findOne({ where: { id: 1 } });
+    const periodoAcademicoId = config?.periodoAcademicoActivoId ?? null;
+    if (!periodoAcademicoId) {
+      throw new BadRequestException('No hay período académico activo');
+    }
 
     await this.cursoRepo.manager.transaction(async (manager) => {
       const existing = await manager.find(CursoEntity, {
@@ -394,12 +469,19 @@ export class TypeOrmAdminRepository implements IAdminRepository {
             gradoId: seccion.gradoId,
             seccionId,
             cursoCatalogoId: catalogoId,
+            periodoAcademicoId,
           });
-        } else if (Number(found.docenteId) !== docenteId) {
-          await manager.update(CursoEntity, found.id, {
-            docenteId,
-            updatedAt: new Date(),
-          });
+        } else {
+          const updates: Partial<CursoEntity> = { updatedAt: new Date() };
+          if (Number(found.docenteId) !== docenteId) {
+            updates.docenteId = docenteId;
+          }
+          if (found.periodoAcademicoId == null) {
+            updates.periodoAcademicoId = periodoAcademicoId;
+          }
+          if (Object.keys(updates).length > 1) {
+            await manager.update(CursoEntity, found.id, updates);
+          }
         }
       }
     });

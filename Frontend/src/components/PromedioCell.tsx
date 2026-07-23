@@ -2,8 +2,6 @@ import { useState } from 'react';
 
 interface PromedioCellProps {
     promedio: number;
-    literal?: string;
-    esPrimaria: boolean;
     totalEvaluaciones?: number;
     evaluacionesTotales?: number;
     desglose?: Array<{ nombre: string; puntaje: number; peso?: number }>;
@@ -11,8 +9,6 @@ interface PromedioCellProps {
 
 export const PromedioCell: React.FC<PromedioCellProps> = ({
     promedio,
-    literal,
-    esPrimaria,
     totalEvaluaciones,
     evaluacionesTotales,
     desglose
@@ -41,16 +37,6 @@ export const PromedioCell: React.FC<PromedioCellProps> = ({
         };
     };
 
-    const getDescripcionLiteral = (lit: string) => {
-        switch (lit) {
-            case 'AD': return 'Logro destacado';
-            case 'A': return 'Logro esperado';
-            case 'B': return 'En proceso';
-            case 'C': return 'En inicio';
-            default: return '';
-        }
-    };
-
     const estado = getEstadoColor();
 
     if (promedio === 0 && (!totalEvaluaciones || totalEvaluaciones === 0)) {
@@ -68,32 +54,21 @@ export const PromedioCell: React.FC<PromedioCellProps> = ({
             onMouseLeave={() => setMostrarTooltip(false)}
         >
             <div className={`${estado.bg} rounded-lg p-2 text-center cursor-help`}>
-                {/* Promedio numérico */}
                 <div className={`text-lg font-bold ${estado.text}`}>
                     {promedio.toFixed(2)}
                 </div>
 
-                {/* Literal para primaria */}
-                {esPrimaria && literal && (
-                    <div className={`text-sm font-semibold ${estado.text} mt-0.5`}>
-                        {literal}
-                    </div>
-                )}
-
-                {/* Contador de evaluaciones */}
                 {totalEvaluaciones !== undefined && evaluacionesTotales !== undefined && (
                     <div className="text-[10px] text-[#6B7280] mt-1">
                         {totalEvaluaciones}/{evaluacionesTotales} evaluaciones
                     </div>
                 )}
 
-                {/* Indicador de estado */}
                 <div className={`text-[10px] ${estado.text} mt-0.5`}>
                     {promedio >= 14 ? '✓ Aprobado' : promedio >= 11 ? '⚠ Regular' : '✗ Desaprobado'}
                 </div>
             </div>
 
-            {/* Tooltip con desglose */}
             {mostrarTooltip && desglose && desglose.length > 0 && (
                 <div className="absolute z-50 bottom-full right-0 mb-2 w-64 bg-white rounded-lg shadow-xl border border-[#E5E7EB] p-3">
                     <div className="text-xs font-semibold text-[#0E2B5C] mb-2">
@@ -124,17 +99,9 @@ export const PromedioCell: React.FC<PromedioCellProps> = ({
                         </span>
                         <span className={`text-sm font-bold ${estado.text}`}>
                             {promedio.toFixed(2)}
-                            {esPrimaria && literal && ` (${literal})`}
                         </span>
                     </div>
 
-                    {esPrimaria && literal && (
-                        <div className="mt-1 text-[10px] text-[#6B7280] text-center">
-                            {getDescripcionLiteral(literal)}
-                        </div>
-                    )}
-
-                    {/* Flecha del tooltip */}
                     <div className="absolute top-full right-4 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-white"></div>
                 </div>
             )}

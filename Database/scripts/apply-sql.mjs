@@ -30,6 +30,7 @@ const OLTP_FILES = [
   'schema_oltp.sql',
   'migrations_extra/oltp_schema_delta.sql',
   'migrations_extra/configuracion_sistema.sql',
+  // matricula_anual + sync_estudiantes_cursos: TypeORM (Backend migrationsRun)
 ];
 
 const OLAP_FILES = [

@@ -2,6 +2,9 @@ import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { SchedulerModule } from './scheduler.module';
 
+// Evita aplicar migraciones OLTP en el scheduler (solo el API las corre).
+process.env.SCHEDULER_ROLE = '1';
+
 async function bootstrap() {
   const logger = new Logger('OlapScheduler');
   const app = await NestFactory.createApplicationContext(SchedulerModule, {

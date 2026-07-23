@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { FormModal, btnPrimary, btnPrimarySm, btnOutlineSecondary } from '../../components/FormModal';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { useToastStore } from '../../stores/toastStore';
 import api from '../../services/api';
 
 interface Grado {
@@ -27,6 +35,7 @@ const UsersIcon = () => (
 );
 
 export const GradosYSecciones = () => {
+    const showToast = useToastStore((s) => s.show);
     const [grados, setGrados] = useState<Grado[]>([]);
     const [loading, setLoading] = useState(true);
     const [showGradoModal, setShowGradoModal] = useState(false);
@@ -39,13 +48,13 @@ export const GradosYSecciones = () => {
         isOpen: boolean;
         title: string;
         message: string;
-        type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+        type: 'confirm';
         onConfirm?: () => void;
     }>({
         isOpen: false,
         title: '',
         message: '',
-        type: 'info',
+        type: 'confirm',
     });
 
     useEffect(() => {
@@ -87,12 +96,7 @@ export const GradosYSecciones = () => {
             setNombreGrado('');
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
-            setModalConfig({
-                isOpen: true,
-                title: 'Error al guardar',
-                message: err.response?.data?.message || 'Error al guardar grado.',
-                type: 'error',
-            });
+            showToast(err.response?.data?.message || 'Error al guardar grado.', 'error', 3500, 'Error al guardar');
         }
     };
 
@@ -117,12 +121,7 @@ export const GradosYSecciones = () => {
                     cargarGrados();
                 } catch (error: unknown) {
                     const err = error as { response?: { data?: { message?: string } } };
-                    setModalConfig({
-                        isOpen: true,
-                        title: 'Error al eliminar',
-                        message: err.response?.data?.message || 'Error al eliminar grado.',
-                        type: 'error',
-                    });
+                    showToast(err.response?.data?.message || 'Error al eliminar grado.', 'error', 3500, 'Error al eliminar');
                 }
             },
         });
@@ -295,16 +294,15 @@ export const GradosYSecciones = () => {
                             <label htmlFor="nivel" className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Nivel
                             </label>
-                            <select
-                                id="nivel"
-                                value={nivel}
-                                onChange={(e) => setNivel(e.target.value)}
-                                className="input-field"
-                                required
-                            >
-                                <option value="primaria">Primaria</option>
-                                <option value="secundaria">Secundaria</option>
-                            </select>
+                            <Select value={nivel} onValueChange={setNivel}>
+                                <SelectTrigger id="nivel">
+                                    <SelectValue placeholder="Seleccionar nivel" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="primaria">Primaria</SelectItem>
+                                    <SelectItem value="secundaria">Secundaria</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div>
                             <label htmlFor="numero" className="mb-1.5 block text-sm font-medium text-slate-700">
@@ -338,14 +336,16 @@ export const GradosYSecciones = () => {
                     </form>
                 </FormModal>
 
-                <Modal
-                    isOpen={modalConfig.isOpen}
-                    onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
-                    title={modalConfig.title}
-                    message={modalConfig.message}
-                    type={modalConfig.type}
-                    onConfirm={modalConfig.onConfirm}
-                />
+                {modalConfig.type === 'confirm' && (
+                    <Modal
+                        isOpen={modalConfig.isOpen}
+                        onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+                        title={modalConfig.title}
+                        message={modalConfig.message}
+                        type="confirm"
+                        onConfirm={modalConfig.onConfirm}
+                    />
+                )}
             </div>
         </>
     );

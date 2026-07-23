@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '../../components/Modal';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { useToastStore } from '../../stores/toastStore';
 import api from '../../services/api';
 
 interface CursoCatalogo {
@@ -39,6 +47,7 @@ interface CursoAsignado {
 }
 
 export const AsignacionCursos = () => {
+    const showToast = useToastStore((s) => s.show);
     const [grados, setGrados] = useState<Grado[]>([]);
     const [docentes, setDocentes] = useState<Docente[]>([]);
     const [catalogoCursos, setCatalogoCursos] = useState<CursoCatalogo[]>([]);
@@ -55,13 +64,13 @@ export const AsignacionCursos = () => {
         isOpen: boolean;
         title: string;
         message: string;
-        type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+        type: 'confirm';
         onConfirm?: () => void;
     }>({
         isOpen: false,
         title: '',
         message: '',
-        type: 'info'
+        type: 'confirm'
     });
 
     useEffect(() => {
@@ -135,12 +144,7 @@ export const AsignacionCursos = () => {
     const asignarCursos = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!seccionSeleccionada || !docenteSeleccionado || cursosSeleccionados.length === 0) {
-            setModalConfig({
-                isOpen: true,
-                title: 'Datos incompletos',
-                message: 'Debes seleccionar sección, docente y al menos un curso.',
-                type: 'warning'
-            });
+            showToast('Debes seleccionar sección, docente y al menos un curso.', 'warning', 3500, 'Datos incompletos');
             return;
         }
 
@@ -151,24 +155,14 @@ export const AsignacionCursos = () => {
             });
 
             if (response.data.success) {
-                setModalConfig({
-                    isOpen: true,
-                    title: '✓ Cursos asignados',
-                    message: response.data.message,
-                    type: 'success'
-                });
+                showToast(response.data.message, 'success', 3500, '✓ Cursos asignados');
                 setShowModal(false);
                 setCursosSeleccionados([]);
                 setDocenteSeleccionado(null);
                 cargarCursosAsignados(seccionSeleccionada);
             }
         } catch (error: any) {
-            setModalConfig({
-                isOpen: true,
-                title: 'Error al asignar',
-                message: error.response?.data?.message || 'Error al asignar cursos.',
-                type: 'error'
-            });
+            showToast(error.response?.data?.message || 'Error al asignar cursos.', 'error', 3500, 'Error al asignar');
         }
     };
 
@@ -179,26 +173,17 @@ export const AsignacionCursos = () => {
             message: '¿Estás seguro de desasignar este curso?',
             type: 'confirm',
             onConfirm: async () => {
+                setModalConfig((prev) => ({ ...prev, isOpen: false }));
                 try {
                     const response = await api.delete(`/admin/cursos-asignados/${cursoId}`);
                     if (response.data.success) {
-                        setModalConfig({
-                            isOpen: true,
-                            title: '✓ Curso desasignado',
-                            message: 'El curso ha sido desasignado exitosamente.',
-                            type: 'success'
-                        });
+                        showToast('El curso ha sido desasignado exitosamente.', 'success', 3500, '✓ Curso desasignado');
                         if (seccionSeleccionada) {
                             cargarCursosAsignados(seccionSeleccionada);
                         }
                     }
                 } catch (error: any) {
-                    setModalConfig({
-                        isOpen: true,
-                        title: 'Error al desasignar',
-                        message: error.response?.data?.message || 'Error al desasignar curso.',
-                        type: 'error'
-                    });
+                    showToast(error.response?.data?.message || 'Error al desasignar curso.', 'error', 3500, 'Error al desasignar');
                 }
             }
         });
@@ -244,41 +229,45 @@ export const AsignacionCursos = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Grado</label>
-                            <select
-                                value={gradoSeleccionado ?? ''}
-                                onChange={(e) => {
-                                    const value = e.target.value;
-                                    setGradoSeleccionado(value ? Number(value) : null);
+                            <Select
+                                value={gradoSeleccionado != null ? String(gradoSeleccionado) : undefined}
+                                onValueChange={(value) => {
+                                    setGradoSeleccionado(Number(value));
                                     setSeccionSeleccionada(null);
                                     setCursosAsignados([]);
                                 }}
-                                className="w-full bg-white px-4 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value="">Seleccionar grado</option>
-                                {grados.map((grado) => (
-                                    <option key={grado.id} value={Number(grado.id)}>{grado.nombre}</option>
-                                ))}
-                            </select>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar grado" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {grados.map((grado) => (
+                                        <SelectItem key={grado.id} value={String(grado.id)}>
+                                            {grado.nombre}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Sección</label>
-                            <select
-                                value={seccionSeleccionada ?? ''}
-                                onChange={(e) => {
-                                    const value = e.target.value;
-                                    setSeccionSeleccionada(value ? Number(value) : null);
-                                }}
-                                className="w-full bg-white px-4 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                            <Select
+                                value={seccionSeleccionada != null ? String(seccionSeleccionada) : undefined}
+                                onValueChange={(value) => setSeccionSeleccionada(Number(value))}
                                 disabled={gradoSeleccionado == null}
                             >
-                                <option value="">Seleccionar sección</option>
-                                {seccionesDisponibles.map((seccion) => (
-                                    <option key={seccion.id} value={Number(seccion.id)}>
-                                        Sección {seccion.nombre}
-                                    </option>
-                                ))}
-                            </select>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar sección" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {seccionesDisponibles.map((seccion) => (
+                                        <SelectItem key={seccion.id} value={String(seccion.id)}>
+                                            Sección {seccion.nombre}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             {gradoSeleccionado != null && seccionesDisponibles.length === 0 && (
                                 <p className="mt-2 text-sm text-amber-700">
                                     Este grado no tiene secciones. Créalas en Grados y Secciones.
@@ -373,20 +362,21 @@ export const AsignacionCursos = () => {
                                 {/* Docente */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Docente</label>
-                                    <select
-                                        value={docenteSeleccionado ?? ''}
-                                        onChange={(e) => {
-                                            const value = e.target.value;
-                                            setDocenteSeleccionado(value ? Number(value) : null);
-                                        }}
-                                        className="w-full bg-white px-4 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        required
+                                    <Select
+                                        value={docenteSeleccionado != null ? String(docenteSeleccionado) : undefined}
+                                        onValueChange={(value) => setDocenteSeleccionado(Number(value))}
                                     >
-                                        <option value="">Seleccionar docente</option>
-                                        {docentes.map((docente) => (
-                                            <option key={docente.id} value={Number(docente.id)}>{docente.name}</option>
-                                        ))}
-                                    </select>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Seleccionar docente" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {docentes.map((docente) => (
+                                                <SelectItem key={docente.id} value={String(docente.id)}>
+                                                    {docente.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                     {nivelGrado === 'primaria' && (
                                         <p className="text-xs text-blue-600 mt-2">
                                             ℹ️ En primaria, el mismo docente dicta todos los cursos de la sección
@@ -449,17 +439,18 @@ export const AsignacionCursos = () => {
                     </div>
                 )}
 
-                {/* Modal de notificaciones */}
-                <Modal
-                    isOpen={modalConfig.isOpen}
-                    onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-                    title={modalConfig.title}
-                    message={modalConfig.message}
-                    type={modalConfig.type}
-                    onConfirm={modalConfig.onConfirm}
-                    confirmText={modalConfig.type === 'confirm' ? 'Confirmar' : 'Aceptar'}
-                    cancelText="Cancelar"
-                />
+                {modalConfig.type === 'confirm' && (
+                    <Modal
+                        isOpen={modalConfig.isOpen}
+                        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                        title={modalConfig.title}
+                        message={modalConfig.message}
+                        type="confirm"
+                        onConfirm={modalConfig.onConfirm}
+                        confirmText="Confirmar"
+                        cancelText="Cancelar"
+                    />
+                )}
             </div>
         </>
     );

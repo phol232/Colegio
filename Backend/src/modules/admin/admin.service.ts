@@ -13,6 +13,10 @@ import {
   IEnrollmentRepository,
 } from '@/domain/ports/enrollment.repository.port';
 import {
+  IMatriculaRepository,
+  MATRICULA_REPOSITORY,
+} from '@/domain/ports/matricula.repository.port';
+import {
   IUserRepository,
   USER_REPOSITORY,
   UserRecord,
@@ -56,6 +60,15 @@ function mapConfig(config: {
   anioAcademico: number;
   periodoEvaluacion: string;
   modoMantenimiento: boolean;
+  periodoAcademicoActivoId?: number | null;
+  periodoAcademico?: {
+    id: number;
+    anio: number;
+    estado: string;
+    matriculaInicio: string | null;
+    matriculaFin: string | null;
+  } | null;
+  gradoIngresoId?: number | null;
   createdAt?: Date;
   updatedAt?: Date;
 }) {
@@ -65,6 +78,17 @@ function mapConfig(config: {
     anio_academico: config.anioAcademico,
     periodo_evaluacion: config.periodoEvaluacion,
     modo_mantenimiento: config.modoMantenimiento,
+    periodo_academico_activo_id: config.periodoAcademicoActivoId ?? null,
+    periodo_academico: config.periodoAcademico
+      ? {
+          id: config.periodoAcademico.id,
+          anio: config.periodoAcademico.anio,
+          estado: config.periodoAcademico.estado,
+          matricula_inicio: config.periodoAcademico.matriculaInicio,
+          matricula_fin: config.periodoAcademico.matriculaFin,
+        }
+      : null,
+    grado_ingreso_id: config.gradoIngresoId ?? null,
     ...(config.createdAt != null ? { created_at: config.createdAt } : {}),
     ...(config.updatedAt != null ? { updated_at: config.updatedAt } : {}),
   };
@@ -88,6 +112,8 @@ export class AdminService {
     private readonly userRepo: IUserRepository,
     @Inject(ENROLLMENT_REPOSITORY)
     private readonly enrollmentRepo: IEnrollmentRepository,
+    @Inject(MATRICULA_REPOSITORY)
+    private readonly matriculaRepo: IMatriculaRepository,
     @Inject(AUTH_REPOSITORY)
     private readonly authRepo: IAuthRepository,
     private readonly maintenanceService: MaintenanceService,
@@ -129,6 +155,16 @@ export class AdminService {
       anioAcademico: dto.anio_academico ?? undefined,
       periodoEvaluacion: dto.periodo_evaluacion ?? undefined,
       modoMantenimiento: dto.modo_mantenimiento ?? undefined,
+      periodoAcademicoEstado: dto.periodo_academico_estado ?? undefined,
+      // null/'' limpia el valor; undefined deja el existente
+      matriculaInicio:
+        dto.matricula_inicio === undefined
+          ? undefined
+          : dto.matricula_inicio || null,
+      matriculaFin:
+        dto.matricula_fin === undefined ? undefined : dto.matricula_fin || null,
+      gradoIngresoId:
+        dto.grado_ingreso_id === undefined ? undefined : dto.grado_ingreso_id,
     });
 
     await this.maintenanceService.invalidateCache();
@@ -240,10 +276,12 @@ export class AdminService {
   async asignarEstudiantesSeccion(
     seccionId: number,
     dto: AsignarEstudiantesSeccionDto,
+    adminId: number,
   ) {
-    await this.adminRepo.assignStudentsToSeccion(
+    await this.matriculaRepo.assignStudentsToSeccionLegacy(
       seccionId,
       dto.estudiantes_ids,
+      adminId,
     );
     return {
       success: true,
@@ -313,7 +351,13 @@ export class AdminService {
       nombre: dto.nombre ?? undefined,
       codigo: dto.codigo ?? undefined,
       nivel: dto.nivel ?? undefined,
-      descripcion: dto.descripcion ?? undefined,
+      // null/'' limpia la descripción; undefined la deja igual
+      descripcion:
+        dto.descripcion === undefined
+          ? undefined
+          : dto.descripcion?.trim()
+            ? dto.descripcion.trim()
+            : null,
     });
     return {
       success: true,
@@ -336,6 +380,13 @@ export class AdminService {
       dto.docente_id,
       dto.cursos_catalogo_ids,
     );
+    const periodo = await this.matriculaRepo.getPeriodoActivo();
+    if (periodo) {
+      await this.matriculaRepo.reconcileActiveMatriculasForSeccion(
+        seccionId,
+        periodo.id,
+      );
+    }
     return {
       success: true,
       message: 'Cursos asignados a la sección exitosamente',

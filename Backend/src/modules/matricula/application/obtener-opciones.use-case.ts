@@ -1,37 +1,30 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
-  ENROLLMENT_REPOSITORY,
-  IEnrollmentRepository,
-} from '@/domain/ports/enrollment.repository.port';
+  IMatriculaRepository,
+  MATRICULA_REPOSITORY,
+} from '@/domain/ports/matricula.repository.port';
 import { ok } from '../../../common/dto/api-response';
 
 @Injectable()
 export class ObtenerOpcionesMatriculaUseCase {
   constructor(
-    @Inject(ENROLLMENT_REPOSITORY)
-    private readonly enrollmentRepo: IEnrollmentRepository,
+    @Inject(MATRICULA_REPOSITORY)
+    private readonly matriculaRepo: IMatriculaRepository,
   ) {}
 
-  async execute() {
-    const { grados, secciones } =
-      await this.enrollmentRepo.getMatriculaOptions();
-
-    const opciones = grados.map((grado) => ({
-      grado: {
-        id: grado.id,
-        nombre: grado.nombre,
-        numero: grado.numero,
-        nivel: grado.nivel,
-      },
-      secciones: secciones
-        .filter((seccion) => seccion.gradoId === grado.id)
-        .map((seccion) => ({
-          id: seccion.id,
-          nombre: seccion.nombre,
-          capacidad: seccion.capacidad,
-        })),
-    }));
-
-    return ok(opciones);
+  async execute(estudianteId?: number) {
+    if (estudianteId) {
+      const propuesta = await this.matriculaRepo.getPropuesta(estudianteId);
+      if (!propuesta.gradoPropuesto) {
+        return ok([]);
+      }
+      return ok([
+        {
+          grado: propuesta.gradoPropuesto,
+          secciones: propuesta.seccionesDisponibles,
+        },
+      ]);
+    }
+    return ok([]);
   }
 }

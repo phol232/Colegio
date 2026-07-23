@@ -17,12 +17,14 @@ import { EstudianteCursoEntity } from './estudiante-curso.entity';
 import { AsistenciaEntity } from './asistencia.entity';
 import { EvaluacionEntity } from './evaluacion.entity';
 import { PromedioUnidadEntity } from './promedio-unidad.entity';
+import { PeriodoAcademicoEntity } from './periodo-academico.entity';
 
 @Entity('cursos')
 @Index('idx_cursos_docente', ['docenteId'])
 @Index('idx_cursos_grado', ['gradoId'])
 @Index('idx_cursos_seccion', ['seccionId'])
 @Index('idx_cursos_catalogo', ['cursoCatalogoId'])
+@Index('idx_cursos_periodo', ['periodoAcademicoId'])
 export class CursoEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id!: number;
@@ -38,6 +40,9 @@ export class CursoEntity {
 
   @Column({ name: 'curso_catalogo_id', type: 'bigint' })
   cursoCatalogoId!: number;
+
+  @Column({ name: 'periodo_academico_id', type: 'bigint', nullable: true })
+  periodoAcademicoId!: number | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt!: Date;
@@ -60,6 +65,13 @@ export class CursoEntity {
   @ManyToOne(() => CursoCatalogoEntity, (catalogo) => catalogo.cursos, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'curso_catalogo_id' })
   cursoCatalogo!: CursoCatalogoEntity;
+
+  @ManyToOne(() => PeriodoAcademicoEntity, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'periodo_academico_id' })
+  periodoAcademico!: PeriodoAcademicoEntity | null;
 
   @OneToMany(() => EstudianteCursoEntity, (ec) => ec.curso)
   estudiantesCursos!: EstudianteCursoEntity[];
