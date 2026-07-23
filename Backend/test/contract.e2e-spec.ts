@@ -92,8 +92,23 @@ describeIntegration('Contract e2e (PostgreSQL + Redis)', () => {
     expect(me.body.data?.email).toBe(email);
   });
 
-  it('GET /api/matricula/opciones requiere autenticación', async () => {
+  it('GET /matricula/estado requiere autenticación', async () => {
+    await request(app.getHttpServer()).get('/api/matricula/estado').expect(401);
+  });
+
+  it('GET /matricula/opciones requiere autenticación', async () => {
     await request(app.getHttpServer()).get('/api/matricula/opciones').expect(401);
+  });
+
+  it('GET /cursos/:cursoId/estudiantes requiere autenticación', async () => {
+    await request(app.getHttpServer()).get('/api/cursos/1/estudiantes').expect(401);
+  });
+
+  it('POST /admin/secciones/:id/asignar-estudiantes requiere autenticación', async () => {
+    await request(app.getHttpServer())
+      .post('/api/admin/secciones/1/asignar-estudiantes')
+      .send({ estudiantes_ids: [] })
+      .expect(401);
   });
 
   it('endpoints críticos documentados en OpenAPI', () => {
@@ -102,6 +117,13 @@ describeIntegration('Contract e2e (PostgreSQL + Redis)', () => {
       'POST /api/admin/usuarios',
       'GET /api/auth/me',
       'GET /api/matricula/estado',
+      'GET /api/matricula/propuesta',
+      'POST /api/matricula/solicitudes',
+      'GET /api/admin/matriculas',
+      'GET /api/admin/secciones/{seccionId}/estudiantes',
+      'POST /api/admin/secciones/{seccionId}/asignar-estudiantes',
+      'GET /api/docente/cursos',
+      'GET /api/cursos/{cursoId}/estudiantes',
       'POST /api/matricula',
       'GET /api/asistencias/estudiante',
       'PUT /api/admin/configuracion',
@@ -109,7 +131,7 @@ describeIntegration('Contract e2e (PostgreSQL + Redis)', () => {
       'PUT /api/evaluaciones/reordenar',
       'POST /api/notas-detalle/bulk',
     ];
-    expect(critical).toHaveLength(10);
+    expect(critical).toHaveLength(17);
   });
 });
 

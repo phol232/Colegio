@@ -2,6 +2,7 @@ export { TypeOrmUnitOfWork, OLTP_CONNECTION } from './typeorm-unit-of-work';
 export { TypeOrmUserRepository } from './typeorm-user.repository';
 export { TypeOrmAuthRepository } from './typeorm-auth.repository';
 export { TypeOrmEnrollmentRepository } from './typeorm-enrollment.repository';
+export { TypeOrmMatriculaRepository } from './typeorm-matricula.repository';
 export { TypeOrmAttendanceRepository } from './typeorm-attendance.repository';
 export { TypeOrmEvaluationRepository } from './typeorm-evaluation.repository';
 export { TypeOrmGradeRepository } from './typeorm-grade.repository';

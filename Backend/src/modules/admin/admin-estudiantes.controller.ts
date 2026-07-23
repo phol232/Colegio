@@ -11,6 +11,8 @@ import {
 import { AuthTokenGuard } from '../../common/guards/auth-token.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthUser } from '../../common/guards/auth-token.guard';
 import { AdminService } from './admin.service';
 import {
   AsignarEstudiantesSeccionDto,
@@ -46,10 +48,15 @@ export class AdminEstudiantesController {
   @Post('secciones/:seccionId/asignar-estudiantes')
   @HttpCode(200)
   asignarSeccion(
+    @CurrentUser() user: AuthUser,
     @Param('seccionId', ParseIntPipe) seccionId: number,
     @Body() dto: AsignarEstudiantesSeccionDto,
   ) {
-    return this.adminService.asignarEstudiantesSeccion(seccionId, dto);
+    return this.adminService.asignarEstudiantesSeccion(
+      seccionId,
+      dto,
+      user.usuario_id,
+    );
   }
 
   @Post('cursos/:cursoId/estudiantes')

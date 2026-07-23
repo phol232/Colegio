@@ -9,6 +9,8 @@ interface ModalProps {
     onConfirm?: () => void;
     confirmText?: string;
     cancelText?: string;
+    /** Render above another modal (e.g. FormModal). */
+    stacked?: boolean;
 }
 
 const iconMap = {
@@ -69,6 +71,7 @@ export const Modal: React.FC<ModalProps> = ({
     onConfirm,
     confirmText = 'Aceptar',
     cancelText = 'Cancelar',
+    stacked = false,
 }) => {
     useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {
@@ -94,7 +97,7 @@ export const Modal: React.FC<ModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className={`fixed inset-0 flex items-center justify-center p-4 ${stacked ? 'z-[60]' : 'z-50'}`}>
             <div
                 className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
                 onClick={type !== 'confirm' ? onClose : undefined}

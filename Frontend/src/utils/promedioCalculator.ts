@@ -12,59 +12,44 @@ interface NotaEstudiante {
 
 interface PromedioResult {
     promedio_numerico: number;
-    promedio_literal: string;
     total_evaluaciones: number;
 }
 
-/**
- * Convierte un promedio numérico a calificación literal (primaria)
- */
-export const convertirALiteral = (promedio: number): string => {
-    if (promedio >= 17) return 'AD'; // Logro destacado
-    if (promedio >= 14) return 'A';  // Logro esperado
-    if (promedio >= 11) return 'B';  // En proceso
-    return 'C';  // En inicio
-};
-
-/**
- * Calcula el promedio simple (sin pesos)
- */
 export const calcularPromedioSimple = (notas: number[]): number => {
     if (notas.length === 0) return 0;
     const suma = notas.reduce((acc, nota) => acc + nota, 0);
     return suma / notas.length;
 };
 
-/**
- * Calcula el promedio ponderado (con pesos)
- */
 export const calcularPromedioPonderado = (
     notasConPeso: Array<{ puntaje: number; peso: number }>
 ): number => {
     if (notasConPeso.length === 0) return 0;
-    
+
+    const totalPeso = notasConPeso.reduce((acc, item) => acc + item.peso, 0);
+    if (totalPeso <= 0) return 0;
+
     const sumaProductos = notasConPeso.reduce(
-        (acc, item) => acc + (item.puntaje * item.peso / 100),
+        (acc, item) => acc + item.puntaje * item.peso,
         0
     );
-    
-    return sumaProductos;
+
+    return sumaProductos / totalPeso;
 };
 
-/**
- * Valida si todas las evaluaciones tienen peso y suman 100%
- */
+export const tienePesos = (evaluaciones: Evaluacion[]): boolean => {
+    return evaluaciones.some(e => e.peso != null && Number(e.peso) > 0);
+};
+
 export const validarPesos = (evaluaciones: Evaluacion[]): boolean => {
-    const evaluacionesConPeso = evaluaciones.filter(e => e.peso !== null);
-    
-    // Si no todas tienen peso, no es válido
-    if (evaluacionesConPeso.length !== evaluaciones.length) {
+    const evaluacionesConPeso = evaluaciones.filter(e => e.peso !== null && Number(e.peso) > 0);
+
+    if (evaluacionesConPeso.length !== evaluaciones.length || evaluaciones.length === 0) {
         return false;
     }
-    
-    // Verificar que sumen 100%
+
     const sumaPesos = evaluacionesConPeso.reduce((sum, e) => sum + (e.peso || 0), 0);
-    return Math.abs(sumaPesos - 100) < 0.01; // Tolerancia para decimales
+    return Math.abs(sumaPesos - 100) < 0.01;
 };
 
 /**
@@ -74,7 +59,6 @@ export const calcularPromedioEstudiante = (
     evaluaciones: Evaluacion[],
     notasEstudiante: NotaEstudiante[]
 ): PromedioResult => {
-    // Filtrar solo las notas que tienen evaluación
     const notasValidas = notasEstudiante.filter(nota =>
         evaluaciones.some(e => sameId(e.id, nota.evaluacionId))
     );
@@ -82,37 +66,33 @@ export const calcularPromedioEstudiante = (
     if (notasValidas.length === 0) {
         return {
             promedio_numerico: 0,
-            promedio_literal: 'C',
             total_evaluaciones: 0
         };
     }
     
     let promedioNumerico: number;
     
-    // Verificar si se debe usar promedio ponderado
-    if (validarPesos(evaluaciones)) {
-        // Promedio ponderado
-        const notasConPeso = notasValidas.map(nota => {
-            const evaluacion = evaluaciones.find(e => sameId(e.id, nota.evaluacionId));
-            return {
-                puntaje: nota.puntaje,
-                peso: evaluacion?.peso || 0
-            };
-        });
+    if (tienePesos(evaluaciones)) {
+        const notasConPeso = notasValidas
+            .map(nota => {
+                const evaluacion = evaluaciones.find(e => sameId(e.id, nota.evaluacionId));
+                return {
+                    puntaje: nota.puntaje,
+                    peso: Number(evaluacion?.peso) || 0
+                };
+            })
+            .filter(n => n.peso > 0);
         
         promedioNumerico = calcularPromedioPonderado(notasConPeso);
     } else {
-        // Promedio simple
         const puntajes = notasValidas.map(n => n.puntaje);
         promedioNumerico = calcularPromedioSimple(puntajes);
     }
     
-    // Redondear a 2 decimales
     promedioNumerico = Math.round(promedioNumerico * 100) / 100;
     
     return {
         promedio_numerico: promedioNumerico,
-        promedio_literal: convertirALiteral(promedioNumerico),
         total_evaluaciones: notasValidas.length
     };
 };

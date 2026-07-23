@@ -45,6 +45,17 @@ export interface CourseAttendanceSummary {
   totalTardanzas: number;
 }
 
+/** Resumen de asistencias del estudiante agregado por curso (vista Mis Asistencias). */
+export interface StudentCourseAttendanceSummary {
+  curso_id: number;
+  curso_nombre: string;
+  total_clases: number;
+  asistencias: number;
+  tardanzas: number;
+  faltas: number;
+  porcentaje_asistencia: number;
+}
+
 export interface IAttendanceRepository {
   bulkUpsert(
     cursoId: number,
@@ -57,6 +68,10 @@ export interface IAttendanceRepository {
     estudianteId: number,
     cursoId: number,
   ): Promise<AttendanceSummary>;
+  getStudentCourseSummaries(
+    estudianteId: number,
+    mes?: number,
+  ): Promise<StudentCourseAttendanceSummary[]>;
   getByCourseAndDate(cursoId: number, fecha: string): Promise<AttendanceRecord[]>;
   getByStudentMonth(estudianteId: number, mes: number): Promise<AttendanceRecord[]>;
   getByStudent(estudianteId: number): Promise<AttendanceRecord[]>;

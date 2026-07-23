@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Modal } from '../../components/Modal';
 import { FormModal, btnPrimary, btnPrimarySm, btnOutlineSecondary } from '../../components/FormModal';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { useToastStore } from '../../stores/toastStore';
 import api from '../../services/api';
 
 interface Usuario {
@@ -50,6 +58,7 @@ const filtros = [
 ];
 
 export const Usuarios = () => {
+    const showToast = useToastStore((s) => s.show);
     const [usuarios, setUsuarios] = useState<Usuario[]>([]);
     const [loading, setLoading] = useState(true);
     const [filtroRol, setFiltroRol] = useState<'todos' | 'admin' | 'docente' | 'estudiante' | 'padre'>('todos');
@@ -67,13 +76,13 @@ export const Usuarios = () => {
         isOpen: boolean;
         title: string;
         message: string;
-        type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+        type: 'confirm';
         onConfirm?: () => void;
     }>({
         isOpen: false,
         title: '',
         message: '',
-        type: 'info',
+        type: 'confirm',
     });
 
     useEffect(() => {
@@ -112,12 +121,7 @@ export const Usuarios = () => {
         e.preventDefault();
 
         if (password !== confirmPassword) {
-            setModalConfig({
-                isOpen: true,
-                title: 'Contraseñas no coinciden',
-                message: 'La contraseña y su confirmación deben ser iguales.',
-                type: 'error',
-            });
+            showToast('La contraseña y su confirmación deben ser iguales.', 'error', 3500, 'Contraseñas no coinciden');
             return;
         }
 
@@ -132,24 +136,14 @@ export const Usuarios = () => {
             });
 
             if (response.data.success) {
-                setModalConfig({
-                    isOpen: true,
-                    title: 'Usuario creado',
-                    message: response.data.message,
-                    type: 'success',
-                });
+                showToast(response.data.message, 'success', 3500, 'Usuario creado');
                 setShowModal(false);
                 resetForm();
                 cargarUsuarios();
             }
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
-            setModalConfig({
-                isOpen: true,
-                title: 'Error al crear usuario',
-                message: err.response?.data?.message || 'No se pudo crear el usuario.',
-                type: 'error',
-            });
+            showToast(err.response?.data?.message || 'No se pudo crear el usuario.', 'error', 3500, 'Error al crear usuario');
         }
     };
 
@@ -166,21 +160,11 @@ export const Usuarios = () => {
                     const response = await api.patch(`/admin/usuarios/${usuario.id}/estado`, {
                         activo: !usuario.activo,
                     });
-                    setModalConfig({
-                        isOpen: true,
-                        title: 'Estado actualizado',
-                        message: response.data.message,
-                        type: 'success',
-                    });
+                    showToast(response.data.message, 'success', 3500, 'Estado actualizado');
                     cargarUsuarios();
                 } catch (error: unknown) {
                     const err = error as { response?: { data?: { message?: string } } };
-                    setModalConfig({
-                        isOpen: true,
-                        title: 'Error',
-                        message: err.response?.data?.message || 'No se pudo cambiar el estado.',
-                        type: 'error',
-                    });
+                    showToast(err.response?.data?.message || 'No se pudo cambiar el estado.', 'error');
                 }
             },
         });
@@ -196,21 +180,11 @@ export const Usuarios = () => {
                 setModalConfig((prev) => ({ ...prev, isOpen: false }));
                 try {
                     const response = await api.delete(`/admin/usuarios/${usuario.id}`);
-                    setModalConfig({
-                        isOpen: true,
-                        title: 'Usuario eliminado',
-                        message: response.data.message,
-                        type: 'success',
-                    });
+                    showToast(response.data.message, 'success', 3500, 'Usuario eliminado');
                     cargarUsuarios();
                 } catch (error: unknown) {
                     const err = error as { response?: { data?: { message?: string } } };
-                    setModalConfig({
-                        isOpen: true,
-                        title: 'Error',
-                        message: err.response?.data?.message || 'No se pudo eliminar el usuario.',
-                        type: 'error',
-                    });
+                    showToast(err.response?.data?.message || 'No se pudo eliminar el usuario.', 'error');
                 }
             },
         });
@@ -437,18 +411,17 @@ export const Usuarios = () => {
                             <label htmlFor="role" className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Rol
                             </label>
-                            <select
-                                id="role"
-                                value={role}
-                                onChange={(e) => setRole(e.target.value)}
-                                className="input-field"
-                                required
-                            >
-                                <option value="estudiante">Estudiante</option>
-                                <option value="docente">Docente</option>
-                                <option value="padre">Padre</option>
-                                <option value="admin">Administrador</option>
-                            </select>
+                            <Select value={role} onValueChange={setRole}>
+                                <SelectTrigger id="role">
+                                    <SelectValue placeholder="Seleccionar rol" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="estudiante">Estudiante</SelectItem>
+                                    <SelectItem value="docente">Docente</SelectItem>
+                                    <SelectItem value="padre">Padre</SelectItem>
+                                    <SelectItem value="admin">Administrador</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
@@ -507,16 +480,18 @@ export const Usuarios = () => {
                     </form>
                 </FormModal>
 
-                <Modal
-                    isOpen={modalConfig.isOpen}
-                    onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
-                    title={modalConfig.title}
-                    message={modalConfig.message}
-                    type={modalConfig.type}
-                    onConfirm={modalConfig.onConfirm}
-                    confirmText={modalConfig.type === 'confirm' ? 'Confirmar' : 'Aceptar'}
-                    cancelText="Cancelar"
-                />
+                {modalConfig.type === 'confirm' && (
+                    <Modal
+                        isOpen={modalConfig.isOpen}
+                        onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+                        title={modalConfig.title}
+                        message={modalConfig.message}
+                        type="confirm"
+                        onConfirm={modalConfig.onConfirm}
+                        confirmText="Confirmar"
+                        cancelText="Cancelar"
+                    />
+                )}
             </div>
         </>
     );

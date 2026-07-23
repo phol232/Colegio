@@ -6,8 +6,9 @@ import {
     Globe,
     Building2,
     Type,
+    CalendarRange,
 } from 'lucide-react';
-import { Modal } from '../components/Modal';
+import { useToastStore } from '../stores/toastStore';
 import api from '../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,15 @@ interface ConfiguracionSistema {
     anio_academico: number;
     periodo_evaluacion: string;
     modo_mantenimiento: boolean;
+    periodo_academico_estado: string;
+    matricula_inicio: string;
+    matricula_fin: string;
+    grado_ingreso_id: number | null;
+}
+
+interface GradoOption {
+    id: number;
+    nombre: string;
 }
 
 const roleLabels: Record<string, string> = {
@@ -56,10 +66,17 @@ const tamanoFuenteOptions = [
     { value: 'grande', label: 'Grande' },
 ];
 
-const periodoOptions = [
+const periodoEvaluacionOptions = [
     { value: 'bimestral', label: 'Bimestral' },
     { value: 'trimestral', label: 'Trimestral' },
     { value: 'semestral', label: 'Semestral' },
+];
+
+const periodoAcademicoEstadoOptions = [
+    { value: 'planificacion', label: 'Planificación' },
+    { value: 'matricula', label: 'Matrícula abierta' },
+    { value: 'activo', label: 'Año en curso' },
+    { value: 'cerrado', label: 'Cerrado' },
 ];
 
 interface ToggleRowProps {
@@ -99,25 +116,20 @@ export const Configuracion = () => {
         anio_academico: 2025,
         periodo_evaluacion: 'trimestral',
         modo_mantenimiento: false,
+        periodo_academico_estado: 'planificacion',
+        matricula_inicio: '',
+        matricula_fin: '',
+        grado_ingreso_id: null,
     });
+    const [grados, setGrados] = useState<GradoOption[]>([]);
 
     const [modoOscuro, setModoOscuro] = useState(false);
     const [idioma, setIdioma] = useState('es');
     const [notificaciones, setNotificaciones] = useState(true);
     const [notificacionesEmail, setNotificacionesEmail] = useState(true);
     const [tamanoFuente, setTamanoFuente] = useState('mediano');
-
-    const [modalConfig, setModalConfig] = useState<{
-        isOpen: boolean;
-        title: string;
-        message: string;
-        type: 'success' | 'error' | 'warning' | 'info';
-    }>({
-        isOpen: false,
-        title: '',
-        message: '',
-        type: 'info',
-    });
+    
+    const showToast = useToastStore((s) => s.show);
 
     useEffect(() => {
         cargarDatos();
@@ -148,15 +160,31 @@ export const Configuracion = () => {
 
             if (userData.role === 'admin') {
                 try {
-                    const configRes = await api.get('/admin/configuracion');
+                    const [configRes, gradosRes] = await Promise.all([
+                        api.get('/admin/configuracion'),
+                        api.get('/admin/grados'),
+                    ]);
                     if (configRes.data.success && configRes.data.data) {
                         const d = configRes.data.data;
+                        const periodo = d.periodo_academico;
                         setConfigSistema({
                             nombre_institucion: d.nombre_institucion ?? 'Colegio Frederick',
                             anio_academico: Number(d.anio_academico) || new Date().getFullYear(),
                             periodo_evaluacion: d.periodo_evaluacion ?? 'trimestral',
                             modo_mantenimiento: Boolean(d.modo_mantenimiento),
+                            periodo_academico_estado: periodo?.estado ?? 'planificacion',
+                            matricula_inicio: periodo?.matricula_inicio?.slice(0, 10) ?? '',
+                            matricula_fin: periodo?.matricula_fin?.slice(0, 10) ?? '',
+                            grado_ingreso_id: d.grado_ingreso_id != null ? Number(d.grado_ingreso_id) : null,
                         });
+                    }
+                    if (gradosRes.data.success) {
+                        setGrados(
+                            (gradosRes.data.data ?? []).map((g: GradoOption) => ({
+                                id: Number(g.id),
+                                nombre: g.nombre,
+                            })),
+                        );
                     }
                 } catch {
                     // Usar valores por defecto si no hay configuración
@@ -164,12 +192,7 @@ export const Configuracion = () => {
             }
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
-            setModalConfig({
-                isOpen: true,
-                title: 'Error',
-                message: err.response?.data?.message || 'Error al cargar datos',
-                type: 'error',
-            });
+            showToast(err.response?.data?.message || 'Error al cargar datos', 'error', 3500, 'Error');
         } finally {
             setLoading(false);
         }
@@ -184,21 +207,15 @@ export const Configuracion = () => {
                 anio_academico: configSistema.anio_academico,
                 periodo_evaluacion: configSistema.periodo_evaluacion,
                 modo_mantenimiento: configSistema.modo_mantenimiento,
+                periodo_academico_estado: configSistema.periodo_academico_estado,
+                matricula_inicio: configSistema.matricula_inicio || null,
+                matricula_fin: configSistema.matricula_fin || null,
+                grado_ingreso_id: configSistema.grado_ingreso_id,
             });
-            setModalConfig({
-                isOpen: true,
-                title: 'Configuración actualizada',
-                message: 'Los ajustes del sistema se guardaron correctamente.',
-                type: 'success',
-            });
+            showToast('Los ajustes del sistema se guardaron correctamente.', 'success', 3500, 'Configuración actualizada');
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
-            setModalConfig({
-                isOpen: true,
-                title: 'Error',
-                message: err.response?.data?.message || 'Error al actualizar configuración',
-                type: 'error',
-            });
+            showToast(err.response?.data?.message || 'Error al actualizar configuración', 'error', 3500, 'Error');
         } finally {
             setGuardandoSistema(false);
         }
@@ -222,46 +239,26 @@ export const Configuracion = () => {
             body.style.color = '';
         }
 
-        setModalConfig({
-            isOpen: true,
-            title: 'Preferencia guardada',
-            message: `Modo ${activado ? 'oscuro' : 'claro'} activado.`,
-            type: 'success',
-        });
+        showToast(`Modo ${activado ? 'oscuro' : 'claro'} activado.`, 'success', 3500, 'Preferencia guardada');
     };
 
     const handleCambiarIdioma = (nuevoIdioma: string) => {
         setIdioma(nuevoIdioma);
         localStorage.setItem('idioma', nuevoIdioma);
         const label = idiomaOptions.find((o) => o.value === nuevoIdioma)?.label ?? nuevoIdioma;
-        setModalConfig({
-            isOpen: true,
-            title: 'Idioma configurado',
-            message: `Idioma cambiado a ${label}. Se aplicará en la próxima actualización.`,
-            type: 'success',
-        });
+        showToast(`Idioma cambiado a ${label}. Se aplicará en la próxima actualización.`, 'success', 3500, 'Idioma configurado');
     };
 
     const handleCambiarNotificaciones = (activado: boolean) => {
         setNotificaciones(activado);
         localStorage.setItem('notificaciones', activado ? 'true' : 'false');
-        setModalConfig({
-            isOpen: true,
-            title: 'Preferencia guardada',
-            message: `Notificaciones ${activado ? 'activadas' : 'desactivadas'}.`,
-            type: 'info',
-        });
+        showToast(`Notificaciones ${activado ? 'activadas' : 'desactivadas'}.`, 'info', 3500, 'Preferencia guardada');
     };
 
     const handleCambiarNotificacionesEmail = (activado: boolean) => {
         setNotificacionesEmail(activado);
         localStorage.setItem('email_notifications', activado ? 'true' : 'false');
-        setModalConfig({
-            isOpen: true,
-            title: 'Preferencia guardada',
-            message: `Notificaciones por email ${activado ? 'activadas' : 'desactivadas'}.`,
-            type: 'success',
-        });
+        showToast(`Notificaciones por email ${activado ? 'activadas' : 'desactivadas'}.`, 'success', 3500, 'Preferencia guardada');
     };
 
     const handleCambiarTamanoFuente = (tamano: string) => {
@@ -281,12 +278,7 @@ export const Configuracion = () => {
         }
 
         const label = tamanoFuenteOptions.find((o) => o.value === tamano)?.label ?? tamano;
-        setModalConfig({
-            isOpen: true,
-            title: 'Preferencia guardada',
-            message: `Tamaño de fuente: ${label}.`,
-            type: 'success',
-        });
+        showToast(`Tamaño de fuente: ${label}.`, 'success', 3500, 'Preferencia guardada');
     };
 
     if (loading) {
@@ -473,25 +465,125 @@ export const Configuracion = () => {
                                                 />
                                             </div>
 
-                                            <div className="space-y-2">
-                                                <Label htmlFor="anio_academico">Año académico</Label>
-                                                <Input
-                                                    id="anio_academico"
-                                                    type="number"
-                                                    value={configSistema.anio_academico}
-                                                    onChange={(e) =>
-                                                        setConfigSistema({
-                                                            ...configSistema,
-                                                            anio_academico:
-                                                                parseInt(e.target.value, 10) ||
-                                                                configSistema.anio_academico,
-                                                        })
-                                                    }
-                                                />
+                                            <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                                                <div className="mb-4 flex items-center gap-2">
+                                                    <CalendarRange className="h-4 w-4 text-sidebar-bg" />
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-slate-900">
+                                                            Período académico
+                                                        </p>
+                                                        <p className="text-xs text-slate-500">
+                                                            Controla el año lectivo y la ventana de matrícula
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="anio_academico">Año académico</Label>
+                                                        <Input
+                                                            id="anio_academico"
+                                                            type="number"
+                                                            value={configSistema.anio_academico}
+                                                            onChange={(e) =>
+                                                                setConfigSistema({
+                                                                    ...configSistema,
+                                                                    anio_academico:
+                                                                        parseInt(e.target.value, 10) ||
+                                                                        configSistema.anio_academico,
+                                                                })
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label>Estado del período</Label>
+                                                        <Select
+                                                            value={configSistema.periodo_academico_estado}
+                                                            onValueChange={(value) =>
+                                                                setConfigSistema({
+                                                                    ...configSistema,
+                                                                    periodo_academico_estado: value,
+                                                                })
+                                                            }
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Seleccionar estado" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {periodoAcademicoEstadoOptions.map((opt) => (
+                                                                    <SelectItem key={opt.value} value={opt.value}>
+                                                                        {opt.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="matricula_inicio">Inicio de matrícula</Label>
+                                                        <Input
+                                                            id="matricula_inicio"
+                                                            type="date"
+                                                            value={configSistema.matricula_inicio}
+                                                            onChange={(e) =>
+                                                                setConfigSistema({
+                                                                    ...configSistema,
+                                                                    matricula_inicio: e.target.value,
+                                                                })
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="matricula_fin">Fin de matrícula</Label>
+                                                        <Input
+                                                            id="matricula_fin"
+                                                            type="date"
+                                                            value={configSistema.matricula_fin}
+                                                            onChange={(e) =>
+                                                                setConfigSistema({
+                                                                    ...configSistema,
+                                                                    matricula_fin: e.target.value,
+                                                                })
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2 md:col-span-2">
+                                                        <Label>Grado de ingreso (estudiantes nuevos)</Label>
+                                                        <Select
+                                                            value={
+                                                                configSistema.grado_ingreso_id != null
+                                                                    ? String(configSistema.grado_ingreso_id)
+                                                                    : 'ninguno'
+                                                            }
+                                                            onValueChange={(value) =>
+                                                                setConfigSistema({
+                                                                    ...configSistema,
+                                                                    grado_ingreso_id:
+                                                                        value === 'ninguno' ? null : Number(value),
+                                                                })
+                                                            }
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Seleccionar grado" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="ninguno">Sin definir</SelectItem>
+                                                                {grados.map((grado) => (
+                                                                    <SelectItem key={grado.id} value={String(grado.id)}>
+                                                                        {grado.nombre}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
                                             </div>
 
-                                            <div className="space-y-2">
-                                                <Label>Período de evaluación</Label>
+                                            <div className="space-y-2 md:col-span-2">
+                                                <Label>Período de evaluación (notas)</Label>
                                                 <Select
                                                     value={configSistema.periodo_evaluacion}
                                                     onValueChange={(value) =>
@@ -505,7 +597,7 @@ export const Configuracion = () => {
                                                         <SelectValue placeholder="Seleccionar período" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {periodoOptions.map((opt) => (
+                                                        {periodoEvaluacionOptions.map((opt) => (
                                                             <SelectItem key={opt.value} value={opt.value}>
                                                                 {opt.label}
                                                             </SelectItem>
@@ -555,14 +647,6 @@ export const Configuracion = () => {
                     </div>
                 </div>
             </div>
-
-            <Modal
-                isOpen={modalConfig.isOpen}
-                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-                title={modalConfig.title}
-                message={modalConfig.message}
-                type={modalConfig.type}
-            />
         </>
     );
 };

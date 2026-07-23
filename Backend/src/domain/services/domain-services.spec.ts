@@ -22,6 +22,17 @@ describe('PromedioCalculatorService', () => {
     expect(service.calcularPromedioSimple([10, 14, 16])).toBe(13.33);
   });
 
+  it('usa ponderado cuando hay pesos (aunque no sumen 100)', () => {
+    // Tareas 2% + 2% + 3% = 7%: promedio relativo al grupo
+    const result = service.calcularPromedioUnidad([
+      { puntaje: 20, peso: 2 },
+      { puntaje: 10, peso: 2 },
+      { puntaje: 10, peso: 3 },
+    ]);
+    // (20*2 + 10*2 + 10*3) / 7 = 90/7 ≈ 12.86
+    expect(result).toBe(12.86);
+  });
+
   it('usa ponderado cuando pesos suman 100', () => {
     const result = service.calcularPromedioUnidad([
       { puntaje: 20, peso: 50 },
@@ -30,10 +41,10 @@ describe('PromedioCalculatorService', () => {
     expect(result).toBe(15);
   });
 
-  it('usa simple cuando pesos no suman 100', () => {
+  it('usa simple cuando no hay pesos', () => {
     const result = service.calcularPromedioUnidad([
-      { puntaje: 20, peso: 30 },
-      { puntaje: 10, peso: 30 },
+      { puntaje: 20, peso: null },
+      { puntaje: 10, peso: null },
     ]);
     expect(result).toBe(15);
   });

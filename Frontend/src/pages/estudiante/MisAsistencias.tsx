@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import api from '../../services/api';
 import { sameId, toId } from '../../utils/ids';
 
@@ -203,16 +210,24 @@ export const MisAsistencias = () => {
                     <div className="mb-6 bg-white rounded-lg shadow border border-[#E5E7EB] p-4">
                         <div className="flex items-center gap-4">
                             <label className="text-sm font-medium text-[#6B7280]">Filtrar por mes:</label>
-                            <select
-                                value={mesSeleccionado || ''}
-                                onChange={(e) => setMesSeleccionado(e.target.value ? parseInt(e.target.value) : null)}
-                                className="px-3 py-2 border border-[#E5E7EB] rounded-lg focus:ring-2 focus:ring-[#17A2E5] text-sm"
+                            <Select
+                                value={mesSeleccionado != null ? String(mesSeleccionado) : 'todos'}
+                                onValueChange={(value) =>
+                                    setMesSeleccionado(value === 'todos' ? null : parseInt(value))
+                                }
                             >
-                                <option value="">Todos los meses</option>
-                                {MESES.map((mes) => (
-                                    <option key={mes.valor} value={mes.valor}>{mes.nombre}</option>
-                                ))}
-                            </select>
+                                <SelectTrigger className="w-48">
+                                    <SelectValue placeholder="Todos los meses" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">Todos los meses</SelectItem>
+                                    {MESES.map((mes) => (
+                                        <SelectItem key={mes.valor} value={String(mes.valor)}>
+                                            {mes.nombre}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             {mesSeleccionado && (
                                 <span className="text-sm text-[#6B7280]">
                                     Mostrando asistencias de {MESES.find(m => m.valor === mesSeleccionado)?.nombre}

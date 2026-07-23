@@ -14,7 +14,9 @@
 \echo '=== [OLTP] 3/3 migrations_extra/configuracion_sistema.sql ==='
 \i migrations_extra/configuracion_sistema.sql
 
-\echo '=== OLTP listo (solo esquema + constraints) ==='
+\echo '=== OLTP base listo ==='
+\echo 'Migraciones de matrícula (matricula_anual → sync_estudiantes_cursos):'
+\echo '  las aplica el backend TypeORM al arrancar (pnpm start:prod).'
 \echo ''
 \echo 'Aplicar OLAP manualmente:'
 \echo '  psql -U academic -d academic_olap -f schema_olap.sql'

@@ -9,6 +9,7 @@ import {
   IAttendanceRepository,
   ListAttendanceFilters,
   PaginatedAttendance,
+  StudentCourseAttendanceSummary,
 } from '@/domain/ports/attendance.repository.port';
 import { AttendanceCalculatorService } from '@/domain/services/attendance-calculator.service';
 import { AsistenciaEntity } from '../entities/oltp/asistencia.entity';
@@ -171,6 +172,69 @@ export class TypeOrmAttendanceRepository implements IAttendanceRepository {
       order: { estudianteId: 'ASC' },
     });
     return rows.map(mapAttendance);
+  }
+
+  async getStudentCourseSummaries(
+    estudianteId: number,
+    mes?: number,
+  ): Promise<StudentCourseAttendanceSummary[]> {
+    const qb = this.repo
+      .createQueryBuilder('a')
+      .innerJoin('a.curso', 'c')
+      .innerJoin('c.cursoCatalogo', 'cc')
+      .select('c.id', 'curso_id')
+      .addSelect('cc.nombre', 'curso_nombre')
+      .addSelect('COUNT(*)', 'total_clases')
+      .addSelect(
+        `SUM(CASE WHEN a.estado = 'presente' THEN 1 ELSE 0 END)`,
+        'asistencias',
+      )
+      .addSelect(
+        `SUM(CASE WHEN a.estado = 'tardanza' THEN 1 ELSE 0 END)`,
+        'tardanzas',
+      )
+      .addSelect(
+        `SUM(CASE WHEN a.estado = 'ausente' THEN 1 ELSE 0 END)`,
+        'faltas',
+      )
+      .where('a.estudiante_id = :estudianteId', { estudianteId })
+      .groupBy('c.id')
+      .addGroupBy('cc.nombre')
+      .orderBy('cc.nombre', 'ASC');
+
+    if (mes != null) {
+      qb.andWhere('EXTRACT(MONTH FROM a.fecha) = :mes', { mes });
+    }
+
+    const rows = await qb.getRawMany<{
+      curso_id: string | number;
+      curso_nombre: string;
+      total_clases: string | number;
+      asistencias: string | number;
+      tardanzas: string | number;
+      faltas: string | number;
+    }>();
+
+    return rows.map((row) => {
+      const total = Number(row.total_clases) || 0;
+      const asistencias = Number(row.asistencias) || 0;
+      const tardanzas = Number(row.tardanzas) || 0;
+      const faltas = Number(row.faltas) || 0;
+      return {
+        curso_id: Number(row.curso_id),
+        curso_nombre: row.curso_nombre,
+        total_clases: total,
+        asistencias,
+        tardanzas,
+        faltas,
+        porcentaje_asistencia:
+          this.attendanceCalculator.calcularPorcentaje(
+            asistencias,
+            tardanzas,
+            total,
+          ),
+      };
+    });
   }
 
   async getByStudentMonth(

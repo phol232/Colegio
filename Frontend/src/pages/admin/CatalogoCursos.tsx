@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '../../components/Modal';
 import { FormModal, btnPrimary, btnPrimarySm, btnOutlineSecondary } from '../../components/FormModal';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { getCourseColor } from '../../utils/courseColors';
+import { useToastStore } from '../../stores/toastStore';
 import api from '../../services/api';
 
 interface CursoCatalogo {
@@ -38,6 +46,7 @@ const nivelLabel: Record<string, string> = {
 };
 
 export const CatalogoCursos = () => {
+    const showToast = useToastStore((s) => s.show);
     const [cursos, setCursos] = useState<CursoCatalogo[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -53,13 +62,13 @@ export const CatalogoCursos = () => {
         isOpen: boolean;
         title: string;
         message: string;
-        type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+        type: 'confirm';
         onConfirm?: () => void;
     }>({
         isOpen: false,
         title: '',
         message: '',
-        type: 'info',
+        type: 'confirm',
     });
 
     useEffect(() => {
@@ -88,24 +97,14 @@ export const CatalogoCursos = () => {
                     : await api.post('/admin/catalogo-cursos', data);
 
             if (response.data.success) {
-                setModalConfig({
-                    isOpen: true,
-                    title: editando ? 'Curso actualizado' : 'Curso creado',
-                    message: response.data.message,
-                    type: 'success',
-                });
+                showToast(response.data.message, 'success', 3500, editando ? 'Curso actualizado' : 'Curso creado');
                 setShowModal(false);
                 resetForm();
                 cargarCursos();
             }
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
-            setModalConfig({
-                isOpen: true,
-                title: 'Error al guardar',
-                message: err.response?.data?.message || 'Error al guardar curso.',
-                type: 'error',
-            });
+            showToast(err.response?.data?.message || 'Error al guardar curso.', 'error', 3500, 'Error al guardar');
         }
     };
 
@@ -135,22 +134,12 @@ export const CatalogoCursos = () => {
                 try {
                     const response = await api.delete(`/admin/catalogo-cursos/${id}`);
                     if (response.data.success) {
-                        setModalConfig({
-                            isOpen: true,
-                            title: 'Curso eliminado',
-                            message: 'El curso ha sido eliminado exitosamente.',
-                            type: 'success',
-                        });
+                        showToast('El curso ha sido eliminado exitosamente.', 'success', 3500, 'Curso eliminado');
                         cargarCursos();
                     }
                 } catch (error: unknown) {
                     const err = error as { response?: { data?: { message?: string } } };
-                    setModalConfig({
-                        isOpen: true,
-                        title: 'Error al eliminar',
-                        message: err.response?.data?.message || 'Error al eliminar curso.',
-                        type: 'error',
-                    });
+                    showToast(err.response?.data?.message || 'Error al eliminar curso.', 'error', 3500, 'Error al eliminar');
                 }
             },
         });
@@ -390,17 +379,16 @@ export const CatalogoCursos = () => {
                             <label htmlFor="nivel" className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Nivel
                             </label>
-                            <select
-                                id="nivel"
-                                value={nivel}
-                                onChange={(e) => setNivel(e.target.value)}
-                                className="input-field"
-                                required
-                            >
-                                <option value="ambos">Ambos niveles</option>
-                                <option value="primaria">Solo primaria</option>
-                                <option value="secundaria">Solo secundaria</option>
-                            </select>
+                            <Select value={nivel} onValueChange={setNivel}>
+                                <SelectTrigger id="nivel">
+                                    <SelectValue placeholder="Seleccionar nivel" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ambos">Ambos niveles</SelectItem>
+                                    <SelectItem value="primaria">Solo primaria</SelectItem>
+                                    <SelectItem value="secundaria">Solo secundaria</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div>
                             <label htmlFor="descripcion" className="mb-1.5 block text-sm font-medium text-slate-700">
@@ -418,16 +406,18 @@ export const CatalogoCursos = () => {
                     </form>
                 </FormModal>
 
-                <Modal
-                    isOpen={modalConfig.isOpen}
-                    onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
-                    title={modalConfig.title}
-                    message={modalConfig.message}
-                    type={modalConfig.type}
-                    onConfirm={modalConfig.onConfirm}
-                    confirmText={modalConfig.type === 'confirm' ? 'Eliminar' : 'Aceptar'}
-                    cancelText="Cancelar"
-                />
+                {modalConfig.type === 'confirm' && (
+                    <Modal
+                        isOpen={modalConfig.isOpen}
+                        onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+                        title={modalConfig.title}
+                        message={modalConfig.message}
+                        type="confirm"
+                        onConfirm={modalConfig.onConfirm}
+                        confirmText="Eliminar"
+                        cancelText="Cancelar"
+                    />
+                )}
             </div>
         </>
     );

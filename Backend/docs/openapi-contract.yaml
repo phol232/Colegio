@@ -167,9 +167,10 @@ paths:
       tags: [matricula]
       security: [{ bearerAuth: [] }]
       x-roles: [estudiante]
+      deprecated: true
       responses:
         '200':
-          description: '{ success, data: [{ grado, secciones }] }'
+          description: 'Deprecated — usar GET /matricula/propuesta'
 
   /matricula/estado:
     get:
@@ -178,9 +179,20 @@ paths:
       x-roles: [estudiante]
       responses:
         '200':
-          description: '{ success, matriculado, info } — sin wrapper data'
+          description: |
+            Estado de matrícula anual: período, solicitud pendiente, matrícula vigente,
+            propuesta de grado y acciones permitidas (puedeSolicitar, puedeCancelar).
 
-  /matricula:
+  /matricula/propuesta:
+    get:
+      tags: [matricula]
+      security: [{ bearerAuth: [] }]
+      x-roles: [estudiante]
+      responses:
+        '200':
+          description: Grado propuesto bloqueado y requisitos pendientes
+
+  /matricula/solicitudes:
     post:
       tags: [matricula]
       security: [{ bearerAuth: [] }]
@@ -190,13 +202,196 @@ paths:
           application/json:
             schema:
               type: object
-              required: [grado_id, seccion_id]
+              properties:
+                observaciones: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Solicitud de matrícula creada (idempotente)
+
+  /matricula/solicitudes/{id}/cancelar:
+    patch:
+      tags: [matricula]
+      security: [{ bearerAuth: [] }]
+      x-roles: [estudiante]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Solicitud pendiente cancelada
+
+  /matricula:
+    post:
+      tags: [matricula]
+      security: [{ bearerAuth: [] }]
+      x-roles: [estudiante]
+      deprecated: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
               properties:
                 grado_id: { type: integer }
                 seccion_id: { type: integer }
       responses:
         '200':
-          description: '{ success, message, data: { grado, seccion, cursos_asignados } }'
+          description: 'Deprecated — redirige a POST /matricula/solicitudes'
+
+  /admin/matriculas:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      parameters:
+        - name: periodo_id
+          in: query
+          schema: { type: integer }
+        - name: estado
+          in: query
+          schema: { type: string, enum: [pendiente, activa, rechazada, retirada] }
+        - name: grado_id
+          in: query
+          schema: { type: integer }
+        - name: seccion_id
+          in: query
+          schema: { type: integer }
+        - name: busqueda
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Listado paginado de matrículas
+
+  /admin/matriculas/periodo-activo:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses:
+        '200':
+          description: Período académico activo
+
+  /admin/matriculas/resumen/{periodoId}:
+    get:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      parameters:
+        - name: periodoId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Resumen por estado del período
+
+  /admin/matriculas/{id}/aprobar:
+    post:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [seccion_id]
+              properties:
+                seccion_id: { type: integer }
+      responses:
+        '200':
+          description: Matrícula aprobada y cursos sincronizados
+
+  /admin/matriculas/{id}/rechazar:
+    post:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                observaciones: { type: string }
+      responses:
+        '200':
+          description: Solicitud rechazada
+
+  /admin/matriculas/{id}/retirar:
+    post:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Matrícula activa retirada
+
+  /admin/matriculas/{id}/seccion:
+    patch:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [seccion_id]
+              properties:
+                seccion_id: { type: integer }
+      responses:
+        '200':
+          description: Sección reasignada
+
+  /admin/matriculas/decisiones:
+    post:
+      tags: [admin]
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [matricula_origen_id, resultado]
+              properties:
+                matricula_origen_id: { type: integer }
+                resultado: { type: string, enum: [promovido, repite, egresado] }
+                grado_destino_id: { type: integer, nullable: true }
+                motivo: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Decisión de promoción registrada
 
   /docente/cursos:
     get:
@@ -695,7 +890,30 @@ paths:
       tags: [admin]
       security: [{ bearerAuth: [] }]
       x-roles: [admin]
-      responses: { '200': { description: asignar_estudiantes_seccion } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [estudiantes_ids]
+              properties:
+                estudiantes_ids:
+                  type: array
+                  items: { type: integer }
+                  description: Conjunto final de estudiantes de la sección (vacío retira a todos).
+      responses:
+        '200':
+          description: asignar_estudiantes_seccion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+        '400':
+          description: Validación, cupo, período o cursos faltantes
 
   /admin/catalogo-cursos:
     get:

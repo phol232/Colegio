@@ -15,7 +15,7 @@ else
   psql -h "$PGHOST" -U "$PGUSER" -d academic_oltp -f /database/schema_oltp.sql
 fi
 
-echo "==> Aplicando migraciones OLTP (idempotentes)..."
+echo "==> Aplicando deltas OLTP base (idempotentes)..."
 psql -h "$PGHOST" -U "$PGUSER" -d academic_oltp -f /database/migrations_extra/oltp_schema_delta.sql
 psql -h "$PGHOST" -U "$PGUSER" -d academic_oltp -f /database/migrations_extra/configuracion_sistema.sql
 
@@ -29,7 +29,9 @@ else
   psql -h "$PGHOST" -U "$PGUSER" -d academic_olap -f /database/schema_olap.sql
 fi
 
-echo "==> Aplicando migraciones OLAP (idempotentes)..."
+echo "==> Aplicando deltas OLAP (idempotentes)..."
 psql -h "$PGHOST" -U "$PGUSER" -d academic_olap -f /database/migrations_extra/olap_schema_delta.sql
 
-echo "==> Inicialización de bases de datos completada."
+echo "==> Inicialización de bases completada."
+echo "    Migraciones de matrícula (matricula_anual → sync_estudiantes_cursos)"
+echo "    las aplica el backend TypeORM al arrancar (migrationsRun)."

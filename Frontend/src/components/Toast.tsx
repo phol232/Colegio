@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertCircle, CheckCircle2, Info, AlertTriangle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Info, AlertTriangle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToastType, useToastStore } from '../stores/toastStore';
 
@@ -26,9 +26,8 @@ const iconStyles: Record<ToastType, string> = {
 };
 
 export const Toast = () => {
-    const { message, type, visible } = useToastStore();
+    const { message, title, type, visible, hide } = useToastStore();
 
-    // Animación de entrada: visible pasa a true en el siguiente frame
     useEffect(() => {
         if (message && !visible) {
             const frame = requestAnimationFrame(() => {
@@ -55,7 +54,7 @@ export const Toast = () => {
         >
             <div
                 className={cn(
-                    'flex items-start gap-3 rounded-xl border px-4 py-3.5 shadow-xl ring-1 ring-black/5',
+                    'pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3.5 shadow-xl ring-1 ring-black/5',
                     styles[type],
                 )}
             >
@@ -67,12 +66,18 @@ export const Toast = () => {
                 >
                     <Icon className="h-5 w-5" />
                 </div>
-                <div className="min-w-0 pt-0.5">
-                    <p className="text-sm font-semibold text-slate-900">
-                        {type === 'error' ? 'Acceso restringido' : 'Aviso'}
-                    </p>
-                    <p className="mt-0.5 text-sm leading-snug text-slate-600">{message}</p>
+                <div className="min-w-0 flex-1 pt-0.5">
+                    <p className="text-sm font-semibold text-slate-900">{title ?? 'Aviso'}</p>
+                    <p className="mt-0.5 text-sm leading-snug text-slate-600 whitespace-pre-line">{message}</p>
                 </div>
+                <button
+                    type="button"
+                    onClick={hide}
+                    aria-label="Cerrar"
+                    className="shrink-0 rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                >
+                    <X className="h-4 w-4" />
+                </button>
             </div>
         </div>,
         document.body,

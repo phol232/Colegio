@@ -32,6 +32,11 @@ function mapEvaluacion(record: EvaluationRecord) {
   };
 }
 
+function resolvePeso(peso?: number | null): number | null {
+  if (peso == null || Number.isNaN(Number(peso))) return null;
+  return Number(peso);
+}
+
 @Injectable()
 export class EvaluacionesService {
   constructor(
@@ -51,22 +56,29 @@ export class EvaluacionesService {
 
     try {
       const unidad = mesToUnidad(dto.mes);
+      const tipo = dto.tipo_evaluacion.trim();
+      const peso = resolvePeso(dto.peso ?? null);
 
-      if (dto.peso != null) {
-        await this.weightPolicy.validateForCourseUnit(
-          dto.curso_id,
-          unidad,
-          dto.peso,
-        );
+      if (peso == null || peso <= 0) {
+        return {
+          success: false,
+          message: 'El peso es obligatorio y debe ser mayor a 0',
+        };
       }
+
+      await this.weightPolicy.validateForCourseUnit(
+        dto.curso_id,
+        unidad,
+        peso,
+      );
 
       const evaluacion = await this.evaluationRepo.create({
         cursoId: dto.curso_id,
         mes: dto.mes,
         unidad,
         nombre,
-        tipoEvaluacion: dto.tipo_evaluacion,
-        peso: dto.peso ?? null,
+        tipoEvaluacion: tipo,
+        peso,
       });
 
       const totalNotas = await this.evaluationRepo.countNotas(evaluacion.id);
@@ -80,6 +92,40 @@ export class EvaluacionesService {
         },
       };
     } catch (e) {
+      // #region agent log
+      {
+        const err = e as { name?: string; message?: string; code?: string; detail?: string; driverError?: { code?: string; detail?: string } };
+        const payload = {
+          sessionId: '762257',
+          runId: 'pre-fix',
+          hypothesisId: 'H1',
+          location: 'evaluaciones.service.ts:crear:catch',
+          message: 'Error real al crear evaluación',
+          data: {
+            errName: err?.name ?? null,
+            errMessage: err?.message ?? String(e),
+            errCode: err?.code ?? err?.driverError?.code ?? null,
+            errDetail: err?.detail ?? err?.driverError?.detail ?? null,
+            cursoId: dto.curso_id,
+            mes: dto.mes,
+            tipo: dto.tipo_evaluacion,
+            pesoSent: dto.peso ?? null,
+            nombreLen: dto.nombre?.trim()?.length ?? 0,
+          },
+          timestamp: Date.now(),
+        };
+        fetch('http://127.0.0.1:7707/ingest/88b07e8e-1ca1-4222-bdb9-6865d4ed5e06', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '762257',
+          },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+        // eslint-disable-next-line no-console
+        console.error('[DEBUG crear evaluacion]', JSON.stringify(payload.data));
+      }
+      // #endregion
       if (e instanceof BadRequestException) {
         return {
           success: false,
@@ -115,19 +161,31 @@ export class EvaluacionesService {
         };
       }
 
-      if (dto.peso != null && existing.unidad != null) {
+      const tipoFinal = (dto.tipo_evaluacion ?? existing.tipoEvaluacion).trim();
+      let peso = existing.peso;
+      if (dto.peso !== undefined) {
+        peso = resolvePeso(dto.peso);
+        if (peso == null || peso <= 0) {
+          return {
+            success: false,
+            message: 'El peso es obligatorio y debe ser mayor a 0',
+          };
+        }
+      }
+
+      if (peso != null && existing.unidad != null) {
         await this.weightPolicy.validateForCourseUnit(
           existing.cursoId,
           existing.unidad,
-          dto.peso,
+          Number(peso),
           id,
         );
       }
 
       const updated = await this.evaluationRepo.update(id, {
         nombre: nombre ?? undefined,
-        tipoEvaluacion: dto.tipo_evaluacion ?? undefined,
-        peso: dto.peso ?? undefined,
+        tipoEvaluacion: dto.tipo_evaluacion !== undefined ? tipoFinal : undefined,
+        peso: dto.peso !== undefined ? peso : undefined,
       });
 
       return {

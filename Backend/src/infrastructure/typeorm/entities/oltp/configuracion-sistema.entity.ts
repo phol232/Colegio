@@ -23,6 +23,12 @@ export class ConfiguracionSistemaEntity {
   @Column({ name: 'modo_mantenimiento', type: 'boolean', default: false })
   modoMantenimiento!: boolean;
 
+  @Column({ name: 'periodo_academico_activo_id', type: 'bigint', nullable: true })
+  periodoAcademicoActivoId!: number | null;
+
+  @Column({ name: 'grado_ingreso_id', type: 'bigint', nullable: true })
+  gradoIngresoId!: number | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt!: Date;
 

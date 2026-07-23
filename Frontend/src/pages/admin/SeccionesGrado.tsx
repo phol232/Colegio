@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Modal } from '../../components/Modal';
 import { FormModal, btnPrimary, btnPrimarySm, btnOutlineSecondary } from '../../components/FormModal';
+import { useToastStore } from '../../stores/toastStore';
 import api from '../../services/api';
 
 interface Grado {
@@ -28,6 +29,7 @@ export const SeccionesGrado = () => {
     const { gradoId } = useParams<{ gradoId: string }>();
     const navigate = useNavigate();
     const location = useLocation();
+    const showToast = useToastStore((s) => s.show);
     const gradoIdNum = Number(gradoId);
     const gradoFromState = (location.state as { grado?: Grado } | null)?.grado ?? null;
 
@@ -45,13 +47,13 @@ export const SeccionesGrado = () => {
         isOpen: boolean;
         title: string;
         message: string;
-        type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+        type: 'confirm';
         onConfirm?: () => void;
     }>({
         isOpen: false,
         title: '',
         message: '',
-        type: 'info',
+        type: 'confirm',
     });
 
     const cargarDatos = useCallback(async () => {
@@ -134,12 +136,7 @@ export const SeccionesGrado = () => {
             await cargarDatos();
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
-            setModalConfig({
-                isOpen: true,
-                title: 'Error al guardar',
-                message: err.response?.data?.message || 'Error al guardar sección.',
-                type: 'error',
-            });
+            showToast(err.response?.data?.message || 'Error al guardar sección.', 'error', 3500, 'Error al guardar');
         }
     };
 
@@ -156,12 +153,7 @@ export const SeccionesGrado = () => {
                     await cargarDatos();
                 } catch (error: unknown) {
                     const err = error as { response?: { data?: { message?: string } } };
-                    setModalConfig({
-                        isOpen: true,
-                        title: 'Error al eliminar',
-                        message: err.response?.data?.message || 'Error al eliminar sección.',
-                        type: 'error',
-                    });
+                    showToast(err.response?.data?.message || 'Error al eliminar sección.', 'error', 3500, 'Error al eliminar');
                 }
             },
         });
@@ -364,14 +356,16 @@ export const SeccionesGrado = () => {
                     </form>
                 </FormModal>
 
-                <Modal
-                    isOpen={modalConfig.isOpen}
-                    onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
-                    title={modalConfig.title}
-                    message={modalConfig.message}
-                    type={modalConfig.type}
-                    onConfirm={modalConfig.onConfirm}
-                />
+                {modalConfig.type === 'confirm' && (
+                    <Modal
+                        isOpen={modalConfig.isOpen}
+                        onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+                        title={modalConfig.title}
+                        message={modalConfig.message}
+                        type="confirm"
+                        onConfirm={modalConfig.onConfirm}
+                    />
+                )}
             </div>
         </>
     );

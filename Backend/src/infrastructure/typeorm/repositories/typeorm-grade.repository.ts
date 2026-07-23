@@ -78,11 +78,24 @@ export class TypeOrmGradeRepository implements IGradeRepository {
   async createNotaDetalle(
     input: CreateNotaDetalleInput,
   ): Promise<NotaDetalleRecord> {
-    const entity = await this.notaDetalleRepo.save({
-      evaluacionId: input.evaluacionId,
-      estudianteId: input.estudianteId,
-      puntaje: input.puntaje,
+    const existing = await this.notaDetalleRepo.findOne({
+      where: {
+        evaluacionId: input.evaluacionId,
+        estudianteId: input.estudianteId,
+      },
     });
+
+    const entity = existing
+      ? await this.notaDetalleRepo.save({
+          ...existing,
+          puntaje: input.puntaje,
+          updatedAt: new Date(),
+        })
+      : await this.notaDetalleRepo.save({
+          evaluacionId: input.evaluacionId,
+          estudianteId: input.estudianteId,
+          puntaje: input.puntaje,
+        });
 
     await this.recalcularPromedioFromNota(entity);
     return mapNotaDetalle(entity);

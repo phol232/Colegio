@@ -184,17 +184,14 @@ export class AsistenciasService {
     try {
       const cacheKey =
         mes != null
-          ? `asistencia:estudiante:${estudianteId}:mes:${mes}`
-          : `asistencia:estudiante:${estudianteId}:all`;
+          ? `asistencia:estudiante:${estudianteId}:resumen:mes:${mes}`
+          : `asistencia:estudiante:${estudianteId}:resumen:all`;
 
-      const asistencias = await this.cache.remember(cacheKey, 3600, async () => {
-        if (mes != null) {
-          return this.attendanceRepo.getByStudentMonth(estudianteId, mes);
-        }
-        return this.attendanceRepo.getByStudent(estudianteId);
+      const resumen = await this.cache.remember(cacheKey, 3600, async () => {
+        return this.attendanceRepo.getStudentCourseSummaries(estudianteId, mes);
       });
 
-      return ok(asistencias.map(mapAttendanceRow));
+      return ok(resumen);
     } catch {
       throw new InternalServerErrorException({
         success: false,

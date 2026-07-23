@@ -7,7 +7,6 @@ interface NotaResumen {
     curso_id: number;
     curso_nombre: string;
     promedio_numerico: number;
-    promedio_literal: string;
     total_evaluaciones: number;
 }
 
@@ -36,6 +35,7 @@ export const EstudianteDashboard = () => {
     const [notasResumen, setNotasResumen] = useState<NotaResumen[]>([]);
     const [asistenciasResumen, setAsistenciasResumen] = useState<AsistenciaResumen[]>([]);
     const [estadisticas, setEstadisticas] = useState<EstadisticasGenerales | null>(null);
+    const [matriculaPendiente, setMatriculaPendiente] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -45,52 +45,66 @@ export const EstudianteDashboard = () => {
     const cargarDatosEstudiante = async () => {
         try {
             setLoading(true);
-            
-            // Cargar mis notas
-            const respNotas = await api.get('/notas/estudiante');
-            const notasTransformadas = (respNotas.data.data || []).map((nota: any) => ({
+
+            const [notasRes, asistenciasRes, matriculaRes] = await Promise.all([
+                api.get('/notas/estudiante'),
+                api.get('/asistencias/estudiante'),
+                api.get('/matricula/estado').catch(() => ({ data: null })),
+            ]);
+
+            const notasTransformadas: NotaResumen[] = (notasRes.data.data || []).map((nota: NotaResumen & { promedio_numerico: string | number }) => ({
                 ...nota,
-                promedio_numerico: parseFloat(nota.promedio_numerico) || 0,
-                total_evaluaciones: parseInt(nota.total_evaluaciones) || 0
+                promedio_numerico: parseFloat(String(nota.promedio_numerico)) || 0,
+                total_evaluaciones: parseInt(String(nota.total_evaluaciones)) || 0,
             }));
             setNotasResumen(notasTransformadas);
-            
-            // Cargar mis asistencias
-            const respAsistencias = await api.get('/asistencias/estudiante');
-            const asistenciasTransformadas = (respAsistencias.data.data || []).map((asist: any) => ({
+
+            const asistenciasTransformadas: AsistenciaResumen[] = (asistenciasRes.data.data || []).map((asist: AsistenciaResumen & { total_clases: string | number }) => ({
                 ...asist,
-                total_clases: parseInt(asist.total_clases) || 0,
-                asistencias: parseInt(asist.asistencias) || 0,
-                tardanzas: parseInt(asist.tardanzas) || 0,
-                faltas: parseInt(asist.faltas) || 0,
-                porcentaje_asistencia: parseFloat(asist.porcentaje_asistencia) || 0
+                total_clases: parseInt(String(asist.total_clases)) || 0,
+                asistencias: parseInt(String(asist.asistencias)) || 0,
+                tardanzas: parseInt(String(asist.tardanzas)) || 0,
+                faltas: parseInt(String(asist.faltas)) || 0,
+                porcentaje_asistencia: parseFloat(String(asist.porcentaje_asistencia)) || 0,
             }));
             setAsistenciasResumen(asistenciasTransformadas);
-            
-            // Calcular estadísticas generales
-            const notas = notasTransformadas;
-            const asistencias = asistenciasTransformadas;
-            
-            // Filtrar solo cursos con evaluaciones para el promedio
-            const notasConEvaluaciones = notas.filter((nota: any) => nota.total_evaluaciones > 0);
-            
-            const promedioGeneral = notasConEvaluaciones.length > 0 
-                ? notasConEvaluaciones.reduce((sum: number, nota: any) => sum + nota.promedio_numerico, 0) / notasConEvaluaciones.length 
-                : 0;
-                
-            const asistenciaGeneral = asistencias.length > 0
-                ? asistencias.reduce((sum: number, asist: any) => sum + asist.porcentaje_asistencia, 0) / asistencias.length
-                : 0;
-                
-            const cursosAprobados = notasConEvaluaciones.filter((nota: any) => nota.promedio_numerico >= 11).length;
-            
+
+            const matriculaData = matriculaRes.data;
+            setMatriculaPendiente(
+                Boolean(
+                    matriculaData?.acciones?.puedeSolicitar ||
+                    matriculaData?.solicitud_pendiente,
+                ) && !matriculaData?.matriculado,
+            );
+
+            const notasConEvaluaciones = notasTransformadas.filter(
+                (nota) => nota.total_evaluaciones > 0,
+            );
+
+            const promedioGeneral =
+                notasConEvaluaciones.length > 0
+                    ? notasConEvaluaciones.reduce((sum, nota) => sum + nota.promedio_numerico, 0) /
+                      notasConEvaluaciones.length
+                    : 0;
+
+            const asistenciaGeneral =
+                asistenciasTransformadas.length > 0
+                    ? asistenciasTransformadas.reduce(
+                          (sum, asist) => sum + asist.porcentaje_asistencia,
+                          0,
+                      ) / asistenciasTransformadas.length
+                    : 0;
+
+            const cursosAprobados = notasConEvaluaciones.filter(
+                (nota) => nota.promedio_numerico >= 11,
+            ).length;
+
             setEstadisticas({
                 promedio_general: promedioGeneral,
                 asistencia_general: asistenciaGeneral,
                 total_cursos: notasConEvaluaciones.length,
-                cursos_aprobados: cursosAprobados
+                cursos_aprobados: cursosAprobados,
             });
-            
         } catch (error) {
             console.error('Error al cargar datos del estudiante:', error);
         } finally {
@@ -143,6 +157,23 @@ export const EstudianteDashboard = () => {
                 </div>
 
                 <div className="max-w-[1600px] mx-auto px-6 py-6">
+                    {matriculaPendiente && (
+                        <div className="mb-6 flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p className="font-medium text-blue-900">Acción de matrícula pendiente</p>
+                                <p className="text-sm text-blue-700">
+                                    Completa o revisa tu solicitud de matrícula para el período actual.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/estudiante/matricula')}
+                                className="shrink-0 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-800"
+                            >
+                                Ir a matrícula
+                            </button>
+                        </div>
+                    )}
                     {/* Estadísticas Generales */}
                     {estadisticas && (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -215,7 +246,6 @@ export const EstudianteDashboard = () => {
                                                     <p className={`text-lg font-bold ${getNotaColor(nota.promedio_numerico)}`}>
                                                         {nota.promedio_numerico.toFixed(1)}
                                                     </p>
-                                                    <p className="text-xs text-[#6B7280]">{nota.promedio_literal}</p>
                                                 </div>
                                             </div>
                                         ))}

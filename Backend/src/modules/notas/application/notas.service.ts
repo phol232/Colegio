@@ -262,6 +262,39 @@ export class NotasService {
     }));
   }
 
+  private calcularPromedioPonderado(
+    items: Array<{ puntaje: number | null; peso: number | null }>,
+  ): { promedio: number; literal: string } {
+    const validos = items.filter(
+      (i) => i.puntaje != null && !Number.isNaN(Number(i.puntaje)),
+    );
+    if (validos.length === 0) {
+      return { promedio: 0, literal: 'C' };
+    }
+
+    const conPeso = validos.filter((i) => i.peso != null && Number(i.peso) > 0);
+    let promedio: number;
+    if (conPeso.length > 0) {
+      const totalPeso = conPeso.reduce((s, i) => s + Number(i.peso), 0);
+      const suma = conPeso.reduce(
+        (s, i) => s + Number(i.puntaje) * Number(i.peso),
+        0,
+      );
+      promedio = totalPeso > 0 ? suma / totalPeso : 0;
+    } else {
+      promedio =
+        validos.reduce((s, i) => s + Number(i.puntaje), 0) / validos.length;
+    }
+    promedio = Math.round(promedio * 100) / 100;
+
+    let literal = 'C';
+    if (promedio >= 17) literal = 'AD';
+    else if (promedio >= 14) literal = 'A';
+    else if (promedio >= 11) literal = 'B';
+
+    return { promedio, literal };
+  }
+
   async misNotas(estudianteId: number) {
     try {
       const rows = await this.estudianteCursoRepo
@@ -279,22 +312,55 @@ export class NotasService {
         .select([
           'c.id AS curso_id',
           'cc.nombre AS curso_nombre',
-          'AVG(nd.puntaje)::numeric(5,2) AS promedio_numerico',
-          `CASE
-             WHEN AVG(nd.puntaje) >= 18 THEN 'AD'
-             WHEN AVG(nd.puntaje) >= 14 THEN 'A'
-             WHEN AVG(nd.puntaje) >= 11 THEN 'B'
-             ELSE 'C'
-           END AS promedio_literal`,
-          'COUNT(DISTINCT e.id)::bigint AS total_evaluaciones',
+          'nd.puntaje AS puntaje',
+          'e.peso AS peso',
+          'e.id AS evaluacion_id',
         ])
-        .groupBy('c.id')
-        .addGroupBy('cc.nombre')
-        .having('COUNT(nd.id) > 0')
         .orderBy('cc.nombre', 'ASC')
         .getRawMany();
 
-      return ok(rows);
+      const byCurso = new Map<
+        string,
+        {
+          curso_id: number;
+          curso_nombre: string;
+          items: Array<{ puntaje: number | null; peso: number | null }>;
+          evalIds: Set<number>;
+        }
+      >();
+
+      for (const row of rows) {
+        const key = String(row.curso_id);
+        if (!byCurso.has(key)) {
+          byCurso.set(key, {
+            curso_id: Number(row.curso_id),
+            curso_nombre: row.curso_nombre,
+            items: [],
+            evalIds: new Set(),
+          });
+        }
+        const bucket = byCurso.get(key)!;
+        bucket.items.push({
+          puntaje: row.puntaje != null ? Number(row.puntaje) : null,
+          peso: row.peso != null ? Number(row.peso) : null,
+        });
+        bucket.evalIds.add(Number(row.evaluacion_id));
+      }
+
+      const data = Array.from(byCurso.values()).map((bucket) => {
+        const { promedio, literal } = this.calcularPromedioPonderado(
+          bucket.items,
+        );
+        return {
+          curso_id: bucket.curso_id,
+          curso_nombre: bucket.curso_nombre,
+          promedio_numerico: promedio,
+          promedio_literal: literal,
+          total_evaluaciones: bucket.evalIds.size,
+        };
+      });
+
+      return ok(data);
     } catch {
       throw new InternalServerErrorException({
         success: false,
@@ -321,13 +387,6 @@ export class NotasService {
           'c.id AS curso_id',
           'cc.nombre AS curso_nombre',
           'cc.codigo AS curso_codigo',
-          'COALESCE(AVG(nd.puntaje), 0)::numeric(5,2) AS promedio_numerico',
-          `CASE
-             WHEN AVG(nd.puntaje) >= 18 THEN 'AD'
-             WHEN AVG(nd.puntaje) >= 14 THEN 'A'
-             WHEN AVG(nd.puntaje) >= 11 THEN 'B'
-             ELSE 'C'
-           END AS promedio_literal`,
           `COALESCE(
              json_agg(
                json_build_object(
@@ -348,17 +407,35 @@ export class NotasService {
         .orderBy('cc.nombre', 'ASC')
         .getRawMany();
 
-      const data = rows.map((nota) => ({
-        curso_id: nota.curso_id,
-        curso_nombre: nota.curso_nombre,
-        curso_codigo: nota.curso_codigo,
-        promedio_numerico: Number(nota.promedio_numerico),
-        promedio_literal: nota.promedio_literal,
-        evaluaciones:
+      const data = rows.map((nota) => {
+        const evaluaciones: Array<{
+          id: number;
+          nombre: string;
+          tipo_evaluacion: string;
+          mes: number;
+          puntaje: number | null;
+          peso: number | null;
+        }> =
           typeof nota.evaluaciones === 'string'
             ? JSON.parse(nota.evaluaciones)
-            : nota.evaluaciones,
-      }));
+            : nota.evaluaciones ?? [];
+
+        const { promedio, literal } = this.calcularPromedioPonderado(
+          evaluaciones.map((e) => ({
+            puntaje: e.puntaje != null ? Number(e.puntaje) : null,
+            peso: e.peso != null ? Number(e.peso) : null,
+          })),
+        );
+
+        return {
+          curso_id: nota.curso_id,
+          curso_nombre: nota.curso_nombre,
+          curso_codigo: nota.curso_codigo,
+          promedio_numerico: promedio,
+          promedio_literal: literal,
+          evaluaciones,
+        };
+      });
 
       return ok(data);
     } catch {

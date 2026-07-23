@@ -20,13 +20,23 @@ const routeLoaders = {
   CatalogoCursos: () => import('./pages/admin/CatalogoCursos').then(({ CatalogoCursos }) => ({ default: CatalogoCursos })),
   Usuarios: () => import('./pages/admin/Usuarios').then(({ Usuarios }) => ({ default: Usuarios })),
   RegistroAsistencia: () => import('./pages/docente/RegistroAsistencia').then(({ RegistroAsistencia }) => ({ default: RegistroAsistencia })),
+  AsistenciaEditor: () => import('./pages/docente/AsistenciaEditor').then(({ AsistenciaEditor }) => ({ default: AsistenciaEditor })),
   NotasIndex: () => import('./pages/docente/NotasIndex').then(({ NotasIndex }) => ({ default: NotasIndex })),
+  EvaluacionesMesHub: () =>
+    import('./pages/docente/EvaluacionesMesHub').then(({ EvaluacionesMesHub }) => ({
+      default: EvaluacionesMesHub,
+    })),
   NotasEditor: () => import('./pages/docente/NotasEditor').then(({ NotasEditor }) => ({ default: NotasEditor })),
   DocenteDashboard: () => import('./pages/docente/DocenteDashboard').then(({ DocenteDashboard }) => ({ default: DocenteDashboard })),
   EstudianteDashboard: () => import('./pages/estudiante/EstudianteDashboard').then(({ EstudianteDashboard }) => ({ default: EstudianteDashboard })),
   MisNotas: () => import('./pages/estudiante/MisNotas').then(({ MisNotas }) => ({ default: MisNotas })),
+  MisNotasCurso: () =>
+    import('./pages/estudiante/MisNotasCurso').then(({ MisNotasCurso }) => ({
+      default: MisNotasCurso,
+    })),
   MisAsistencias: () => import('./pages/estudiante/MisAsistencias').then(({ MisAsistencias }) => ({ default: MisAsistencias })),
   Matricula: () => import('./pages/estudiante/Matricula').then(({ Matricula }) => ({ default: Matricula })),
+  MatriculasAdmin: () => import('./pages/admin/MatriculasAdmin').then(({ MatriculasAdmin }) => ({ default: MatriculasAdmin })),
   Analisis: () => import('./pages/Analisis').then(({ Analisis }) => ({ default: Analisis })),
   Configuracion: () => import('./pages/Configuracion').then(({ Configuracion }) => ({ default: Configuracion })),
   Mantenimiento: () => import('./pages/Mantenimiento').then(({ Mantenimiento }) => ({ default: Mantenimiento })),
@@ -43,13 +53,17 @@ const AsignacionEstudiantes = lazy(routeLoaders.AsignacionEstudiantes);
 const CatalogoCursos = lazy(routeLoaders.CatalogoCursos);
 const Usuarios = lazy(routeLoaders.Usuarios);
 const RegistroAsistencia = lazy(routeLoaders.RegistroAsistencia);
+const AsistenciaEditor = lazy(routeLoaders.AsistenciaEditor);
 const NotasIndex = lazy(routeLoaders.NotasIndex);
+const EvaluacionesMesHub = lazy(routeLoaders.EvaluacionesMesHub);
 const NotasEditor = lazy(routeLoaders.NotasEditor);
 const DocenteDashboard = lazy(routeLoaders.DocenteDashboard);
 const EstudianteDashboard = lazy(routeLoaders.EstudianteDashboard);
 const MisNotas = lazy(routeLoaders.MisNotas);
+const MisNotasCurso = lazy(routeLoaders.MisNotasCurso);
 const MisAsistencias = lazy(routeLoaders.MisAsistencias);
 const Matricula = lazy(routeLoaders.Matricula);
+const MatriculasAdmin = lazy(routeLoaders.MatriculasAdmin);
 const Analisis = lazy(routeLoaders.Analisis);
 const Configuracion = lazy(routeLoaders.Configuracion);
 const Mantenimiento = lazy(routeLoaders.Mantenimiento);
@@ -109,19 +123,30 @@ function App() {
               <Route path="/admin/usuarios" element={<Usuarios />} />
               <Route path="/admin/catalogo" element={<CatalogoCursos />} />
               <Route path="/admin/cursos" element={<AsignacionCursos />} />
+              <Route path="/admin/matriculas" element={<MatriculasAdmin />} />
               <Route path="/admin/estudiantes" element={<AsignacionEstudiantes />} />
             </Route>
 
             <Route element={<RoleGuard allowedRoles={['docente']} />}>
               <Route path="/docente/dashboard" element={<DocenteDashboard />} />
               <Route path="/docente/asistencia" element={<RegistroAsistencia />} />
+              <Route path="/docente/asistencia/curso/:cursoId" element={<AsistenciaEditor />} />
               <Route path="/docente/notas" element={<NotasIndex />} />
-              <Route path="/docente/notas/curso/:cursoId/mes/:mes" element={<NotasEditor />} />
+              <Route path="/docente/notas/curso/:cursoId/mes/:mes" element={<EvaluacionesMesHub />} />
+              <Route
+                path="/docente/notas/curso/:cursoId/mes/:mes/registrar"
+                element={<NotasEditor />}
+              />
+              <Route
+                path="/docente/notas/curso/:cursoId/mes/:mes/ver"
+                element={<NotasEditor />}
+              />
             </Route>
 
             <Route element={<RoleGuard allowedRoles={['estudiante']} />}>
               <Route path="/estudiante/dashboard" element={<EstudianteDashboard />} />
               <Route path="/estudiante/notas" element={<MisNotas />} />
+              <Route path="/estudiante/notas/curso/:cursoId" element={<MisNotasCurso />} />
               <Route path="/estudiante/asistencias" element={<MisAsistencias />} />
               <Route path="/estudiante/matricula" element={<Matricula />} />
             </Route>

@@ -1,11 +1,34 @@
 export { ADMIN_REPOSITORY } from './tokens';
 
+export type PeriodoAcademicoEstado =
+  | 'planificacion'
+  | 'matricula'
+  | 'activo'
+  | 'cerrado';
+
+export interface PeriodoAcademicoConfig {
+  id: number;
+  anio: number;
+  estado: PeriodoAcademicoEstado;
+  matriculaInicio: string | null;
+  matriculaFin: string | null;
+}
+
 export interface SystemConfig {
   id: number;
   nombreInstitucion: string;
   anioAcademico: number;
   periodoEvaluacion: string;
   modoMantenimiento: boolean;
+  periodoAcademicoActivoId: number | null;
+  periodoAcademico: PeriodoAcademicoConfig | null;
+  gradoIngresoId: number | null;
+}
+
+export interface UpdateSystemConfigInput extends Partial<SystemConfig> {
+  periodoAcademicoEstado?: PeriodoAcademicoEstado;
+  matriculaInicio?: string | null;
+  matriculaFin?: string | null;
 }
 
 export interface DashboardStats {
@@ -21,7 +44,7 @@ export interface IAdminRepository {
   getDashboardStats(): Promise<DashboardStats>;
   getSeccionesInfo(): Promise<Record<string, unknown>[]>;
   getConfiguracion(): Promise<SystemConfig | null>;
-  updateConfiguracion(input: Partial<SystemConfig>): Promise<SystemConfig>;
+  updateConfiguracion(input: UpdateSystemConfigInput): Promise<SystemConfig>;
 
   listGrados(): Promise<Record<string, unknown>[]>;
   createGrado(
