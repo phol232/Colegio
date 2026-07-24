@@ -17,6 +17,8 @@ interface Curso {
 interface EstadisticasCurso {
     curso_id: number;
     curso_nombre: string;
+    grado?: string;
+    seccion?: string;
     total_estudiantes: number;
     promedio_curso: number;
     asistencia_promedio: number;
@@ -46,8 +48,6 @@ export const DocenteDashboard = () => {
             // Cargar dashboard completo con una sola llamada
             const response = await api.get('/docente/dashboard');
             const data = response.data.data;
-
-            console.log('Dashboard cargado:', data);
 
             setCursos(data.cursos || []);
             setEstadisticasCursos(data.estadisticas || []);
@@ -198,13 +198,13 @@ export const DocenteDashboard = () => {
                             <div className="p-6">
                                 {cursos.length > 0 ? (
                                     <div className="space-y-4">
-                                        {cursos.slice(0, 4).map((curso) => {
+                                        {cursos.map((curso) => {
                                             const courseColor = getCourseColor(curso.nombre);
                                             const estadistica = estadisticasCursos.find(e => sameId(e.curso_id, curso.id));
 
                                             return (
                                                 <div key={curso.id} className="flex items-center justify-between p-4 bg-[#F5F7FA] rounded-lg hover:shadow-md transition-shadow cursor-pointer"
-                                                    onClick={() => navigate(`/docente/notas/curso/${curso.id}/mes/3`)}>
+                                                    onClick={() => navigate(`/docente/notas/curso/${curso.id}/mes/${new Date().getMonth() + 1}`)}>
                                                     <div className="flex items-center space-x-3">
                                                         <div
                                                             className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
@@ -222,20 +222,12 @@ export const DocenteDashboard = () => {
                                                             {estadistica?.total_estudiantes || 0} estudiantes
                                                         </p>
                                                         <p className="text-xs text-[#6B7280]">
-                                                            Promedio: {estadistica?.promedio_curso.toFixed(1) || '0.0'}
+                                                            Promedio: {estadistica?.promedio_curso != null ? estadistica.promedio_curso.toFixed(1) : '0.0'}
                                                         </p>
                                                     </div>
                                                 </div>
                                             );
                                         })}
-                                        {cursos.length > 4 && (
-                                            <button
-                                                onClick={() => navigate('/docente/notas')}
-                                                className="w-full text-center py-2 text-[#17A2E5] hover:text-[#1589C6] text-sm font-medium"
-                                            >
-                                                Ver todos los cursos ({cursos.length})
-                                            </button>
-                                        )}
                                     </div>
                                 ) : (
                                     <div className="text-center py-8">
@@ -256,10 +248,15 @@ export const DocenteDashboard = () => {
                             <div className="p-6">
                                 {estadisticasCursos.length > 0 ? (
                                     <div className="space-y-4">
-                                        {estadisticasCursos.slice(0, 4).map((estadistica) => (
+                                        {estadisticasCursos.map((estadistica) => (
                                             <div key={estadistica.curso_id} className="p-4 bg-[#F5F7FA] rounded-lg">
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <h4 className="font-medium text-[#1F2937]">{estadistica.curso_nombre}</h4>
+                                                    <div>
+                                                        <h4 className="font-medium text-[#1F2937]">{estadistica.curso_nombre}</h4>
+                                                        <p className="text-xs text-[#6B7280]">
+                                                            {estadistica.grado ?? ''}{estadistica.seccion ? ` · Sección ${estadistica.seccion}` : ''}
+                                                        </p>
+                                                    </div>
                                                     <span className="text-xs text-[#6B7280]">{estadistica.total_estudiantes} estudiantes</span>
                                                 </div>
                                                 <div className="grid grid-cols-3 gap-2 text-xs">

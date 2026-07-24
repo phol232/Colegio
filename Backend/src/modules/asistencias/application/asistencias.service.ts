@@ -1,4 +1,5 @@
 import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   ATTENDANCE_REPOSITORY,
   AttendanceRecord,
@@ -7,6 +8,7 @@ import {
 } from '@/domain/ports/attendance.repository.port';
 import { CacheService } from '../../../common/redis/cache.service';
 import { ok } from '../../../common/dto/api-response';
+import { RENDIMIENTO_CURSO_CAMBIADO } from '@/modules/etl/rendimiento.events';
 import { RegistrarAsistenciaMasivaDto } from '../dto/registrar-asistencia.dto';
 import { ListarAsistenciasQueryDto } from '../dto/listar-asistencias.query.dto';
 
@@ -28,6 +30,7 @@ export class AsistenciasService {
     @Inject(ATTENDANCE_REPOSITORY)
     private readonly attendanceRepo: IAttendanceRepository,
     private readonly cache: CacheService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async registrarMasiva(dto: RegistrarAsistenciaMasivaDto) {
@@ -48,6 +51,9 @@ export class AsistenciasService {
         await this.cache.del(
           `asistencia:curso:${dto.curso_id}:fecha:${dto.fecha}`,
         );
+        this.eventEmitter.emit(RENDIMIENTO_CURSO_CAMBIADO, {
+          cursoId: dto.curso_id,
+        });
       }
 
       return response;
@@ -77,6 +83,9 @@ export class AsistenciasService {
       await this.cache.del(
         `asistencia:curso:${asistencia.cursoId}:fecha:${asistencia.fecha}`,
       );
+      this.eventEmitter.emit(RENDIMIENTO_CURSO_CAMBIADO, {
+        cursoId: asistencia.cursoId,
+      });
 
       return {
         success: true,

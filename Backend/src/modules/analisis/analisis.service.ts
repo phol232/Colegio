@@ -1,9 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
+import Redis from 'ioredis';
 import {
   ANALYTICS_REPOSITORY,
   IAnalyticsRepository,
 } from '@/domain/ports/analytics.repository.port';
 import { CacheService } from '@/common/redis/cache.service';
+import { CACHE_REDIS } from '@/common/redis/redis.module';
+
+const ANALISIS_CACHE_TTL = 120;
+const ANALISIS_VERSION_KEY = 'analisis:version';
 
 @Injectable()
 export class AnalisisService {
@@ -11,7 +16,13 @@ export class AnalisisService {
     @Inject(ANALYTICS_REPOSITORY)
     private readonly analyticsRepository: IAnalyticsRepository,
     private readonly cache: CacheService,
+    @Inject(CACHE_REDIS) private readonly redis: Redis,
   ) {}
+
+  async getVersion(): Promise<{ version: number }> {
+    const raw = await this.redis.get(ANALISIS_VERSION_KEY);
+    return { version: Number(raw ?? 0) };
+  }
 
   async rendimiento(
     cursoId?: number,
@@ -36,7 +47,7 @@ export class AnalisisService {
   ) {
     const cacheKey = `analisis:curso:${cursoId}:${this.hashFechas(fechaInicio, fechaFin)}`;
 
-    return this.cache.remember(cacheKey, 3600, async () => {
+    return this.cache.remember(cacheKey, ANALISIS_CACHE_TTL, async () => {
       const row = await this.analyticsRepository.getCoursePerformance(cursoId, {
         fechaInicio,
         fechaFin,
@@ -87,7 +98,7 @@ export class AnalisisService {
   async evolucionEstudiante(estudianteId: number, cursoId?: number) {
     const cacheKey = `analisis:estudiante:${estudianteId}:curso:${cursoId ?? 'all'}`;
 
-    return this.cache.remember(cacheKey, 3600, async () => {
+    return this.cache.remember(cacheKey, ANALISIS_CACHE_TTL, async () => {
       const evolucion = await this.analyticsRepository.getStudentEvolution(
         estudianteId,
         cursoId,
@@ -103,7 +114,7 @@ export class AnalisisService {
   async estadisticasGenerales(fechaInicio?: string, fechaFin?: string) {
     const cacheKey = `analisis:generales:${this.hashFechas(fechaInicio, fechaFin)}`;
 
-    return this.cache.remember(cacheKey, 1800, async () => {
+    return this.cache.remember(cacheKey, ANALISIS_CACHE_TTL, async () => {
       const filter = { fechaInicio, fechaFin };
       const [datos, dist, bajo] = await Promise.all([
         this.analyticsRepository.getGeneralStats(filter),
@@ -129,7 +140,7 @@ export class AnalisisService {
   async rankingCurso(cursoId: number, limite = 10) {
     const cacheKey = `analisis:ranking:curso:${cursoId}:limite:${limite}`;
 
-    return this.cache.remember(cacheKey, 3600, async () => {
+    return this.cache.remember(cacheKey, ANALISIS_CACHE_TTL, async () => {
       return this.analyticsRepository.getCourseRanking(cursoId, limite);
     });
   }
@@ -137,7 +148,7 @@ export class AnalisisService {
   async comparativaCursos(fechaInicio?: string, fechaFin?: string) {
     const cacheKey = `analisis:comparativa:${this.hashFechas(fechaInicio, fechaFin)}`;
 
-    return this.cache.remember(cacheKey, 3600, async () => {
+    return this.cache.remember(cacheKey, ANALISIS_CACHE_TTL, async () => {
       const resultados = await this.analyticsRepository.compareCourses({
         fechaInicio,
         fechaFin,

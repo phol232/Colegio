@@ -6,7 +6,11 @@
   "license": "UNLICENSED",
   "packageManager": "pnpm@10.12.1",
   "pnpm": {
-    "onlyBuiltDependencies": ["bcrypt", "esbuild", "msgpackr-extract"]
+    "onlyBuiltDependencies": [
+      "bcrypt",
+      "esbuild",
+      "msgpackr-extract"
+    ]
   },
   "scripts": {
     "build": "nest build",
@@ -36,6 +40,7 @@
     "@nestjs/common": "^11.1.12",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.1.12",
+    "@nestjs/event-emitter": "^3.1.0",
     "@nestjs/platform-express": "^11.1.12",
     "@nestjs/schedule": "^5.0.1",
     "@nestjs/swagger": "^11.2.6",

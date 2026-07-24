@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { CommonModule } from './common/common.module';
@@ -14,6 +15,7 @@ import { EtlProcessor } from './modules/etl/etl.processor';
       load: [configuration],
       validate: validateEnv,
     }),
+    EventEmitterModule.forRoot(),
     CommonModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
