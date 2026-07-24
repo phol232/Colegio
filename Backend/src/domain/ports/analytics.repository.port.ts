@@ -3,6 +3,8 @@ export { ANALYTICS_REPOSITORY } from './tokens';
 export interface DateRangeFilter {
   fechaInicio?: string;
   fechaFin?: string;
+  /** Si está definido, limita el análisis a cursos de ese docente. */
+  docenteId?: number;
 }
 
 export interface CoursePerformanceRow {
@@ -38,6 +40,7 @@ export interface IAnalyticsRepository {
   getStudentEvolution(
     estudianteId: number,
     cursoId?: number,
+    docenteId?: number,
   ): Promise<Record<string, unknown>[]>;
   getGeneralStats(filter?: DateRangeFilter): Promise<GeneralStatsRow>;
   getGradeDistribution(filter?: DateRangeFilter): Promise<{
@@ -50,7 +53,12 @@ export interface IAnalyticsRepository {
   getCourseRanking(
     cursoId: number,
     limit?: number,
+    docenteId?: number,
   ): Promise<Record<string, unknown>[]>;
   compareCourses(filter?: DateRangeFilter): Promise<Record<string, unknown>[]>;
-  getCourseEvolutionValues(cursoId: number): Promise<number[]>;
+  getCourseEvolutionValues(
+    cursoId: number,
+    docenteId?: number,
+  ): Promise<number[]>;
+  isDocenteCurso(docenteId: number, cursoId: number): Promise<boolean>;
 }

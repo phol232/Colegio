@@ -7,6 +7,9 @@ import {
   GeneralStatsRow,
   IAnalyticsRepository,
 } from '@/domain/ports/analytics.repository.port';
+import {
+  OLTP_CONNECTION,
+} from '@/infrastructure/typeorm/repositories/typeorm-unit-of-work';
 
 export const OLAP_CONNECTION = 'olap';
 
@@ -15,13 +18,15 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
   constructor(
     @InjectDataSource(OLAP_CONNECTION)
     private readonly dataSource: DataSource,
+    @InjectDataSource(OLTP_CONNECTION)
+    private readonly oltpDataSource: DataSource,
   ) {}
 
   async getCoursePerformance(
     cursoId: number,
     filter?: DateRangeFilter,
   ): Promise<CoursePerformanceRow | null> {
-    const { clause, params } = this.buildDateClause(filter, [cursoId]);
+    const { clause, params, joins } = this.buildFilterClause(filter, [cursoId]);
 
     const rows = await this.dataSource.query(
       `SELECT
@@ -39,6 +44,7 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
        FROM fact_rendimiento_estudiantil f
        JOIN dim_curso c ON f.curso_key = c.curso_key
        JOIN dim_tiempo t ON f.tiempo_key = t.tiempo_key
+       ${joins}
        WHERE c.curso_id = $1
        ${clause}
        GROUP BY c.nombre, c.codigo`,
@@ -68,13 +74,20 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
   async getStudentEvolution(
     estudianteId: number,
     cursoId?: number,
+    docenteId?: number,
   ): Promise<Record<string, unknown>[]> {
     const params: unknown[] = [estudianteId];
-    let cursoFilter = '';
+    let extra = '';
+    let joins = '';
 
     if (cursoId != null) {
       params.push(cursoId);
-      cursoFilter = ` AND c.curso_id = $${params.length}`;
+      extra += ` AND c.curso_id = $${params.length}`;
+    }
+    if (docenteId != null) {
+      params.push(docenteId);
+      joins += ' JOIN dim_docente d ON f.docente_key = d.docente_key';
+      extra += ` AND d.docente_id = $${params.length}`;
     }
 
     return this.dataSource.query(
@@ -98,15 +111,16 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
        JOIN dim_estudiante e ON f.estudiante_key = e.estudiante_key
        JOIN dim_curso c ON f.curso_key = c.curso_key
        JOIN dim_tiempo t ON f.tiempo_key = t.tiempo_key
+       ${joins}
        WHERE e.estudiante_id = $1
-       ${cursoFilter}
+       ${extra}
        ORDER BY t.fecha DESC`,
       params,
     );
   }
 
   async getGeneralStats(filter?: DateRangeFilter): Promise<GeneralStatsRow> {
-    const { clause, params } = this.buildDateClause(filter);
+    const { clause, params, joins } = this.buildFilterClause(filter);
 
     const [datos] = await this.dataSource.query(
       `SELECT
@@ -120,6 +134,7 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
          COUNT(*) FILTER (WHERE f.promedio_notas < 11 AND f.promedio_notas > 0)::int AS "totalDesaprobados"
        FROM fact_rendimiento_estudiantil f
        JOIN dim_tiempo t ON f.tiempo_key = t.tiempo_key
+       ${joins}
        WHERE f.promedio_notas IS NOT NULL
        ${clause}`,
       params,
@@ -145,7 +160,7 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
     regular: number;
     bajo: number;
   }> {
-    const { clause, params } = this.buildDateClause(filter);
+    const { clause, params, joins } = this.buildFilterClause(filter);
 
     const [dist] = await this.dataSource.query(
       `SELECT
@@ -155,6 +170,7 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
          COUNT(*) FILTER (WHERE f.promedio_notas >= 0 AND f.promedio_notas < 11)::int AS bajo
        FROM fact_rendimiento_estudiantil f
        JOIN dim_tiempo t ON f.tiempo_key = t.tiempo_key
+       ${joins}
        WHERE f.promedio_notas IS NOT NULL
        ${clause}`,
       params,
@@ -169,12 +185,13 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
   }
 
   async getLowPerformanceCourseCount(filter?: DateRangeFilter): Promise<number> {
-    const { clause, params } = this.buildDateClause(filter);
+    const { clause, params, joins } = this.buildFilterClause(filter);
 
     const [row] = await this.dataSource.query(
       `SELECT COUNT(DISTINCT f.curso_key)::int AS total
        FROM fact_rendimiento_estudiantil f
        JOIN dim_tiempo t ON f.tiempo_key = t.tiempo_key
+       ${joins}
        WHERE f.promedio_notas IS NOT NULL AND f.promedio_notas < 11
        ${clause}`,
       params,
@@ -186,7 +203,17 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
   async getCourseRanking(
     cursoId: number,
     limit = 10,
+    docenteId?: number,
   ): Promise<Record<string, unknown>[]> {
+    const params: unknown[] = [cursoId, limit];
+    let joins = '';
+    let extra = '';
+    if (docenteId != null) {
+      params.push(docenteId);
+      joins = ' JOIN dim_docente d ON f.docente_key = d.docente_key';
+      extra = ` AND d.docente_id = $${params.length}`;
+    }
+
     return this.dataSource.query(
       `SELECT
          e.nombre AS estudiante_nombre,
@@ -200,18 +227,20 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
        FROM fact_rendimiento_estudiantil f
        JOIN dim_estudiante e ON f.estudiante_key = e.estudiante_key
        JOIN dim_curso c ON f.curso_key = c.curso_key
+       ${joins}
        WHERE c.curso_id = $1
          AND f.promedio_notas > 0
+         ${extra}
        ORDER BY f.promedio_notas DESC
        LIMIT $2`,
-      [cursoId, limit],
+      params,
     );
   }
 
   async compareCourses(
     filter?: DateRangeFilter,
   ): Promise<Record<string, unknown>[]> {
-    const { clause, params } = this.buildDateClause(filter);
+    const { clause, params, joins } = this.buildFilterClause(filter);
 
     return this.dataSource.query(
       `SELECT
@@ -225,6 +254,7 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
        FROM fact_rendimiento_estudiantil f
        JOIN dim_curso c ON f.curso_key = c.curso_key
        JOIN dim_tiempo t ON f.tiempo_key = t.tiempo_key
+       ${joins}
        WHERE f.promedio_notas IS NOT NULL
        ${clause}
        GROUP BY c.curso_id, c.nombre
@@ -233,13 +263,27 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
     );
   }
 
-  async getCourseEvolutionValues(cursoId: number): Promise<number[]> {
+  async getCourseEvolutionValues(
+    cursoId: number,
+    docenteId?: number,
+  ): Promise<number[]> {
+    const params: unknown[] = [cursoId];
+    let joins = '';
+    let extra = '';
+    if (docenteId != null) {
+      params.push(docenteId);
+      joins = ' JOIN dim_docente d ON f.docente_key = d.docente_key';
+      extra = ` AND d.docente_id = $${params.length}`;
+    }
+
     const rows = await this.dataSource.query(
       `SELECT f.promedio_notas
        FROM fact_rendimiento_estudiantil f
        JOIN dim_curso c ON f.curso_key = c.curso_key
-       WHERE c.curso_id = $1 AND f.promedio_notas IS NOT NULL`,
-      [cursoId],
+       ${joins}
+       WHERE c.curso_id = $1 AND f.promedio_notas IS NOT NULL
+       ${extra}`,
+      params,
     );
 
     return rows.map((r: { promedio_notas: string | number }) =>
@@ -247,12 +291,27 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
     );
   }
 
-  private buildDateClause(
+  async isDocenteCurso(docenteId: number, cursoId: number): Promise<boolean> {
+    const [oltp] = await this.oltpDataSource.query(
+      `SELECT 1 AS ok FROM cursos WHERE id = $1 AND docente_id = $2 LIMIT 1`,
+      [cursoId, docenteId],
+    );
+    return Boolean(oltp);
+  }
+
+  private buildFilterClause(
     filter?: DateRangeFilter,
     baseParams: unknown[] = [],
-  ): { clause: string; params: unknown[] } {
+  ): { clause: string; params: unknown[]; joins: string } {
     const params = [...baseParams];
     let clause = '';
+    let joins = '';
+
+    if (filter?.docenteId != null) {
+      params.push(filter.docenteId);
+      joins += ' JOIN dim_docente d ON f.docente_key = d.docente_key';
+      clause += ` AND d.docente_id = $${params.length}`;
+    }
 
     if (filter?.fechaInicio) {
       params.push(filter.fechaInicio);
@@ -263,6 +322,6 @@ export class TypeOrmAnalyticsRepository implements IAnalyticsRepository {
       clause += ` AND t.fecha <= $${params.length}`;
     }
 
-    return { clause, params };
+    return { clause, params, joins };
   }
 }
