@@ -92,6 +92,40 @@ export class EvaluacionesService {
         },
       };
     } catch (e) {
+      // #region agent log
+      {
+        const err = e as { name?: string; message?: string; code?: string; detail?: string; driverError?: { code?: string; detail?: string } };
+        const payload = {
+          sessionId: '762257',
+          runId: 'pre-fix',
+          hypothesisId: 'H1',
+          location: 'evaluaciones.service.ts:crear:catch',
+          message: 'Error real al crear evaluación',
+          data: {
+            errName: err?.name ?? null,
+            errMessage: err?.message ?? String(e),
+            errCode: err?.code ?? err?.driverError?.code ?? null,
+            errDetail: err?.detail ?? err?.driverError?.detail ?? null,
+            cursoId: dto.curso_id,
+            mes: dto.mes,
+            tipo: dto.tipo_evaluacion,
+            pesoSent: dto.peso ?? null,
+            nombreLen: dto.nombre?.trim()?.length ?? 0,
+          },
+          timestamp: Date.now(),
+        };
+        fetch('http://127.0.0.1:7707/ingest/88b07e8e-1ca1-4222-bdb9-6865d4ed5e06', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '762257',
+          },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+        // eslint-disable-next-line no-console
+        console.error('[DEBUG crear evaluacion]', JSON.stringify(payload.data));
+      }
+      // #endregion
       if (e instanceof BadRequestException) {
         return {
           success: false,
