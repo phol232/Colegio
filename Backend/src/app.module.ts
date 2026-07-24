@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { BullModule } from '@nestjs/bullmq';
 import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { CommonModule } from './common/common.module';
@@ -21,6 +23,7 @@ import { PromediosModule } from './modules/promedios/promedios.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { PadresModule } from './modules/padres/padres.module';
 import { AnalisisModule } from './modules/analisis/analisis.module';
+import { OlapSyncQueueModule } from './modules/etl/olap-sync-queue.module';
 
 @Module({
   imports: [
@@ -29,6 +32,7 @@ import { AnalisisModule } from './modules/analisis/analisis.module';
       load: [configuration],
       validate: validateEnv,
     }),
+    EventEmitterModule.forRoot(),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => [
@@ -39,7 +43,18 @@ import { AnalisisModule } from './modules/analisis/analisis.module';
         },
       ],
     }),
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          host: config.get<string>('redisQueue.host'),
+          port: config.get<number>('redisQueue.port'),
+          db: config.get<number>('redisQueue.db'),
+        },
+      }),
+    }),
     CommonModule,
+    OlapSyncQueueModule,
     AuthModule,
     PerfilModule,
     MatriculaModule,

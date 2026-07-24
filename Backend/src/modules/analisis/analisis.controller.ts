@@ -17,6 +17,12 @@ import { AnalisisService } from './analisis.service';
 export class AnalisisController {
   constructor(private readonly analisisService: AnalisisService) {}
 
+  @Get('version')
+  async version() {
+    const data = await this.analisisService.getVersion();
+    return { success: true, data };
+  }
+
   @Get('rendimiento')
   async rendimiento(
     @Query('curso_id') cursoId?: string,

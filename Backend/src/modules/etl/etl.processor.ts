@@ -5,8 +5,11 @@ import { EtlMode, EtlService } from './etl.service';
 
 export const OLAP_SYNC_QUEUE = 'olap-sync';
 
+export type OlapSyncJobMode = EtlMode | 'curso';
+
 export interface OlapSyncJobData {
-  mode: EtlMode;
+  mode: OlapSyncJobMode;
+  cursoId?: number;
 }
 
 @Processor(OLAP_SYNC_QUEUE)
@@ -19,8 +22,16 @@ export class EtlProcessor extends WorkerHost {
 
   async process(job: Job<OlapSyncJobData>) {
     const mode = job.data?.mode ?? 'incremental';
-    this.logger.log(`Procesando job ${job.id} mode=${mode}`);
-    const result = await this.etlService.run(mode);
+    this.logger.log(
+      `Procesando job ${job.id} mode=${mode}` +
+        (mode === 'curso' ? ` cursoId=${job.data.cursoId}` : ''),
+    );
+
+    const result =
+      mode === 'curso'
+        ? await this.etlService.syncFactCurso(Number(job.data.cursoId))
+        : await this.etlService.run(mode);
+
     this.logger.log(
       `Job ${job.id} finalizado: ${result.registros} registros`,
     );

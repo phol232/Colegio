@@ -1,8 +1,8 @@
-import { Injectable, Logger, Module } from '@nestjs/common';
+import { Injectable, Logger, Module, Inject } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule, InjectQueue } from '@nestjs/bullmq';
 import { ScheduleModule, Cron, CronExpression } from '@nestjs/schedule';
-import { Inject } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Queue } from 'bullmq';
 import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
@@ -21,9 +21,9 @@ export class OlapSyncScheduler {
     @InjectQueue(OLAP_SYNC_QUEUE) private readonly olapQueue: Queue,
   ) {}
 
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron('0 */6 * * *')
   async enqueueIncremental() {
-    this.logger.log('Encolando sync incremental OLAP');
+    this.logger.log('Encolando sync incremental OLAP (cada 6h)');
     await this.olapQueue.add(
       'incremental',
       { mode: 'incremental' as const },
@@ -75,6 +75,7 @@ export class TokenCleanupScheduler {
       load: [configuration],
       validate: validateEnv,
     }),
+    EventEmitterModule.forRoot(),
     CommonModule,
     ScheduleModule.forRoot(),
     BullModule.forRootAsync({

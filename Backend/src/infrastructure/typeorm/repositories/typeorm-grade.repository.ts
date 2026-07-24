@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import {
   BulkNotaDetalleInput,
   CreateNotaDetalleInput,
@@ -10,6 +11,7 @@ import {
   PromedioUnidadRecord,
 } from '@/domain/ports/grade.repository.port';
 import { PromedioCalculatorService } from '@/domain/services/promedio-calculator.service';
+import { RENDIMIENTO_CURSO_CAMBIADO } from '@/modules/etl/rendimiento.events';
 import { EvaluacionEntity } from '../entities/oltp/evaluacion.entity';
 import { EstudianteCursoEntity } from '../entities/oltp/estudiante-curso.entity';
 import { NotaDetalleEntity } from '../entities/oltp/nota-detalle.entity';
@@ -68,6 +70,7 @@ export class TypeOrmGradeRepository implements IGradeRepository {
     @InjectRepository(EstudianteCursoEntity, OLTP_CONNECTION)
     private readonly estudianteCursoRepo: Repository<EstudianteCursoEntity>,
     private readonly promedioCalculator: PromedioCalculatorService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async findNotaDetalleById(id: number): Promise<NotaDetalleRecord | null> {
@@ -97,7 +100,10 @@ export class TypeOrmGradeRepository implements IGradeRepository {
           puntaje: input.puntaje,
         });
 
-    await this.recalcularPromedioFromNota(entity);
+    const cursoId = await this.recalcularPromedioFromNota(entity);
+    if (cursoId != null) {
+      this.emitCursoCambiado(cursoId);
+    }
     return mapNotaDetalle(entity);
   }
 
@@ -105,6 +111,7 @@ export class TypeOrmGradeRepository implements IGradeRepository {
     notas: BulkNotaDetalleInput[],
   ): Promise<{ success: boolean; inserted: number }> {
     let inserted = 0;
+    const cursoIds = new Set<number>();
 
     await this.notaDetalleRepo.manager.transaction(async (manager) => {
       for (const nota of notas) {
@@ -130,9 +137,16 @@ export class TypeOrmGradeRepository implements IGradeRepository {
             estudianteId: nota.estudianteId,
           },
         });
-        await this.recalcularPromedioFromNota(saved, manager);
+        const cursoId = await this.recalcularPromedioFromNota(saved, manager);
+        if (cursoId != null) {
+          cursoIds.add(cursoId);
+        }
       }
     });
+
+    for (const cursoId of cursoIds) {
+      this.emitCursoCambiado(cursoId);
+    }
 
     return { success: true, inserted };
   }
@@ -145,7 +159,10 @@ export class TypeOrmGradeRepository implements IGradeRepository {
     entity.puntaje = puntaje;
     entity.updatedAt = new Date();
     const saved = await this.notaDetalleRepo.save(entity);
-    await this.recalcularPromedioFromNota(saved);
+    const cursoId = await this.recalcularPromedioFromNota(saved);
+    if (cursoId != null) {
+      this.emitCursoCambiado(cursoId);
+    }
     return mapNotaDetalle(saved);
   }
 
@@ -156,7 +173,10 @@ export class TypeOrmGradeRepository implements IGradeRepository {
     }
 
     await this.notaDetalleRepo.delete(id);
-    await this.recalcularPromedioFromNota(entity);
+    const cursoId = await this.recalcularPromedioFromNota(entity);
+    if (cursoId != null) {
+      this.emitCursoCambiado(cursoId);
+    }
   }
 
   async listNotasByEvaluacion(
@@ -233,6 +253,7 @@ export class TypeOrmGradeRepository implements IGradeRepository {
       }
     });
 
+    this.emitCursoCambiado(cursoId);
     return estudiantes.length;
   }
 
@@ -253,6 +274,7 @@ export class TypeOrmGradeRepository implements IGradeRepository {
       unidad,
       puntaje,
     });
+    this.emitCursoCambiado(cursoId);
     return mapNotaLegacy(entity);
   }
 
@@ -265,11 +287,16 @@ export class TypeOrmGradeRepository implements IGradeRepository {
       updatedAt: new Date(),
     });
     const entity = await this.notaLegacyRepo.findOneOrFail({ where: { id } });
+    this.emitCursoCambiado(Number(entity.cursoId));
     return mapNotaLegacy(entity);
   }
 
   async deleteNotaLegacy(id: number): Promise<void> {
+    const entity = await this.notaLegacyRepo.findOne({ where: { id } });
     await this.notaLegacyRepo.delete(id);
+    if (entity) {
+      this.emitCursoCambiado(Number(entity.cursoId));
+    }
   }
 
   async listNotasLegacy(filters: {
@@ -286,15 +313,19 @@ export class TypeOrmGradeRepository implements IGradeRepository {
     return rows.map(mapNotaLegacy);
   }
 
+  private emitCursoCambiado(cursoId: number) {
+    this.eventEmitter.emit(RENDIMIENTO_CURSO_CAMBIADO, { cursoId });
+  }
+
   private async recalcularPromedioFromNota(
     nota: NotaDetalleEntity,
-    manager = this.notaDetalleRepo.manager,
-  ): Promise<void> {
+    manager: EntityManager = this.notaDetalleRepo.manager,
+  ): Promise<number | null> {
     const evaluacion = await manager.findOne(EvaluacionEntity, {
       where: { id: nota.evaluacionId },
     });
     if (!evaluacion?.unidad) {
-      return;
+      return evaluacion?.cursoId != null ? Number(evaluacion.cursoId) : null;
     }
 
     await this.promedioCalculator.recalcularYGuardar(
@@ -303,5 +334,6 @@ export class TypeOrmGradeRepository implements IGradeRepository {
       Number(evaluacion.cursoId),
       evaluacion.unidad,
     );
+    return Number(evaluacion.cursoId);
   }
 }

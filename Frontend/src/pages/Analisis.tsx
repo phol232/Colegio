@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
     Users,
     TrendingUp,
@@ -27,10 +27,10 @@ interface EstadisticasGenerales {
         asistencia: number;
     }>;
     distribucion_notas: {
-        excelente: number; // 18-20
-        bueno: number;     // 15-17
-        regular: number;   // 11-14
-        bajo: number;      // 0-10
+        excelente: number;
+        bueno: number;
+        regular: number;
+        bajo: number;
     };
 }
 
@@ -40,8 +40,10 @@ interface ComparativaCursos {
     promedio: number;
     asistencia: number;
     total_estudiantes: number;
-    tendencia: string; // 'up' | 'down' | 'stable'
+    tendencia: string;
 }
+
+const VERSION_POLL_MS = 30_000;
 
 const distribucionConfig = [
     {
@@ -84,40 +86,87 @@ export const Analisis = () => {
     const [loading, setLoading] = useState(true);
     const [fechaInicio, setFechaInicio] = useState('');
     const [fechaFin, setFechaFin] = useState('');
-    
+    const versionRef = useRef<number | null>(null);
+    const fechasRef = useRef({ inicio: '', fin: '' });
+
     const showToast = useToastStore((s) => s.show);
 
-    useEffect(() => {
-        // Establecer fecha por defecto: último mes
-        const hoy = new Date();
-        const hace30Dias = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-        setFechaInicio(hace30Dias.toISOString().split('T')[0]);
-        setFechaFin(hoy.toISOString().split('T')[0]);
-
-        cargarDatos();
-    }, []);
-
-    const cargarDatos = async (inicio?: string, fin?: string) => {
+    const cargarDatos = useCallback(async (inicio?: string, fin?: string, silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const params = new URLSearchParams();
             if (inicio) params.append('fecha_inicio', inicio);
             if (fin) params.append('fecha_fin', fin);
 
-            const [estadisticasRes, comparativaRes] = await Promise.all([
+            const [estadisticasRes, comparativaRes, versionRes] = await Promise.all([
                 api.get(`/analisis/estadisticas?${params.toString()}`),
-                api.get(`/analisis/comparativa?${params.toString()}`)
+                api.get(`/analisis/comparativa?${params.toString()}`),
+                api.get('/analisis/version').catch(() => null),
             ]);
 
             setEstadisticas(estadisticasRes.data.data);
             setComparativa(comparativaRes.data.data || []);
+            if (versionRes?.data?.data?.version != null) {
+                versionRef.current = Number(versionRes.data.data.version);
+            }
         } catch (error: any) {
-            showToast(error.response?.data?.message || 'Error al cargar datos de análisis', 'error', 3500, 'Error');
+            if (!silent) {
+                showToast(error.response?.data?.message || 'Error al cargar datos de análisis', 'error', 3500, 'Error');
+            }
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
-    };
+    }, [showToast]);
+
+    useEffect(() => {
+        const hoy = new Date();
+        const hace30Dias = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const inicio = hace30Dias.toISOString().split('T')[0];
+        const fin = hoy.toISOString().split('T')[0];
+
+        setFechaInicio(inicio);
+        setFechaFin(fin);
+        fechasRef.current = { inicio, fin };
+        cargarDatos(inicio, fin);
+    }, [cargarDatos]);
+
+    useEffect(() => {
+        fechasRef.current = { inicio: fechaInicio, fin: fechaFin };
+    }, [fechaInicio, fechaFin]);
+
+    useEffect(() => {
+        const pollVersion = async () => {
+            if (document.visibilityState !== 'visible') return;
+            try {
+                const res = await api.get('/analisis/version');
+                const next = Number(res.data?.data?.version ?? 0);
+                if (versionRef.current == null) {
+                    versionRef.current = next;
+                    return;
+                }
+                if (next !== versionRef.current) {
+                    versionRef.current = next;
+                    const { inicio, fin } = fechasRef.current;
+                    await cargarDatos(inicio || undefined, fin || undefined, true);
+                }
+            } catch {
+                // Silencioso: el polling no debe romper la UI
+            }
+        };
+
+        const intervalId = window.setInterval(pollVersion, VERSION_POLL_MS);
+        const onVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                void pollVersion();
+            }
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+
+        return () => {
+            window.clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', onVisibility);
+        };
+    }, [cargarDatos]);
 
     const handleFiltrar = () => {
         if (!fechaInicio || !fechaFin) {

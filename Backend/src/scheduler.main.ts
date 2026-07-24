@@ -13,7 +13,7 @@ async function bootstrap() {
 
   app.enableShutdownHooks();
   logger.log(
-    'Scheduler OLAP iniciado (incremental cada hora, full 03:00)',
+    'Scheduler OLAP iniciado (incremental cada 6h, full 03:00)',
   );
 }
 
