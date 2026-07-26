@@ -9,22 +9,10 @@ export default () => ({
     user: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
   },
-  olap: {
-    host: process.env.DB_OLAP_HOST ?? process.env.DB_HOST,
-    port: parseInt(process.env.DB_OLAP_PORT ?? process.env.DB_PORT ?? '5432', 10),
-    database: process.env.DB_OLAP_DATABASE,
-    user: process.env.DB_OLAP_USERNAME ?? process.env.DB_USERNAME,
-    password: process.env.DB_OLAP_PASSWORD ?? process.env.DB_PASSWORD,
-  },
   redisCache: {
     host: process.env.REDIS_CACHE_HOST,
     port: parseInt(process.env.REDIS_CACHE_PORT ?? '6379', 10),
     db: parseInt(process.env.REDIS_CACHE_DB ?? '0', 10),
-  },
-  redisQueue: {
-    host: process.env.REDIS_QUEUE_HOST,
-    port: parseInt(process.env.REDIS_QUEUE_PORT ?? '6379', 10),
-    db: parseInt(process.env.REDIS_QUEUE_DB ?? '0', 10),
   },
   throttle: {
     ttl: parseInt(process.env.THROTTLE_TTL ?? '60', 10),

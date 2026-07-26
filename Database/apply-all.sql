@@ -1,8 +1,7 @@
 -- ============================================
 -- APPLY-ALL — Esquema OLTP (sin funciones PL/pgSQL de negocio)
 -- La lógica de negocio vive en TypeORM / TypeScript.
--- Base nueva: solo tablas, constraints e índices (sin triggers).
--- Funciones históricas: Database/historical/README.md
+-- El análisis lee directamente de OLTP (sin base OLAP).
 -- ============================================
 
 \echo '=== [OLTP] 1/3 schema_oltp.sql ==='
@@ -15,9 +14,5 @@
 \i migrations_extra/configuracion_sistema.sql
 
 \echo '=== OLTP base listo ==='
-\echo 'Migraciones de matrícula (matricula_anual → sync_estudiantes_cursos):'
-\echo '  las aplica el backend TypeORM al arrancar (pnpm start:prod).'
-\echo ''
-\echo 'Aplicar OLAP manualmente:'
-\echo '  psql -U academic -d academic_olap -f schema_olap.sql'
-\echo '  psql -U academic -d academic_olap -f migrations_extra/olap_schema_delta.sql'
+\echo 'Migraciones TypeORM al arrancar el API (pnpm start:prod):'
+\echo '  matricula_anual → sync_estudiantes_cursos → analytics_indexes → drop-olap'

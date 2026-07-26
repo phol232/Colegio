@@ -6,15 +6,13 @@ import { SchedulerModule } from './scheduler.module';
 process.env.SCHEDULER_ROLE = '1';
 
 async function bootstrap() {
-  const logger = new Logger('OlapScheduler');
+  const logger = new Logger('Scheduler');
   const app = await NestFactory.createApplicationContext(SchedulerModule, {
     logger: ['log', 'error', 'warn'],
   });
 
   app.enableShutdownHooks();
-  logger.log(
-    'Scheduler OLAP iniciado (incremental cada 6h, full 03:00)',
-  );
+  logger.log('Scheduler iniciado (limpieza de tokens cada hora)');
 }
 
 bootstrap().catch((err) => {

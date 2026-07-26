@@ -1,6 +1,6 @@
 /**
  * Tests de caracterización e integración.
- * Requieren PostgreSQL (OLTP+OLAP) y Redis levantados.
+ * Requieren PostgreSQL (OLTP) y Redis levantados.
  *
  * En CI: services postgres:16 y redis:7 con variables DB_* / REDIS_*.
  * Local: docker compose up -d postgres redis-cache redis-queue

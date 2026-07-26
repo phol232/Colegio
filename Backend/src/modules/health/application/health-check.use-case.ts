@@ -3,10 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import Redis from 'ioredis';
-import {
-  OLAP_CONNECTION,
-  OLTP_CONNECTION,
-} from '@/infrastructure/typeorm/repositories';
+import { OLTP_CONNECTION } from '@/infrastructure/typeorm/repositories';
 import { CACHE_REDIS } from '@/common/redis/redis.module';
 
 export type HealthCheckStatus = 'ok' | 'down';
@@ -18,7 +15,6 @@ export interface HealthCheckResult {
   version: string;
   checks: {
     database_oltp: HealthCheckStatus;
-    database_olap: HealthCheckStatus;
     redis: HealthCheckStatus;
   };
 }
@@ -28,8 +24,6 @@ export class HealthCheckUseCase {
   constructor(
     @InjectDataSource(OLTP_CONNECTION)
     private readonly oltpDataSource: DataSource,
-    @InjectDataSource(OLAP_CONNECTION)
-    private readonly olapDataSource: DataSource,
     @Inject(CACHE_REDIS) private readonly redis: Redis,
     private readonly config: ConfigService,
   ) {}
@@ -37,7 +31,6 @@ export class HealthCheckUseCase {
   async execute(): Promise<{ result: HealthCheckResult; httpStatus: number }> {
     const checks: HealthCheckResult['checks'] = {
       database_oltp: 'down',
-      database_olap: 'down',
       redis: 'down',
     };
 
@@ -46,13 +39,6 @@ export class HealthCheckUseCase {
       checks.database_oltp = 'ok';
     } catch {
       checks.database_oltp = 'down';
-    }
-
-    try {
-      await this.olapDataSource.query('SELECT 1');
-      checks.database_olap = 'ok';
-    } catch {
-      checks.database_olap = 'down';
     }
 
     try {

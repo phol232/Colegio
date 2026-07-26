@@ -3,7 +3,6 @@ export function validateEnv(config: Record<string, unknown>) {
     'DB_HOST',
     'DB_PASSWORD',
     'REDIS_CACHE_HOST',
-    'REDIS_QUEUE_HOST',
     'PORT',
   ] as const;
 
