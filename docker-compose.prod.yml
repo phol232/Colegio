@@ -14,15 +14,8 @@ x-backend-common: &backend-common
     DB_DATABASE: academic_oltp
     DB_USERNAME: academic
     DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
-    DB_OLAP_HOST: pgbouncer
-    DB_OLAP_PORT: 6432
-    DB_OLAP_DATABASE: academic_olap
-    DB_OLAP_USERNAME: academic
-    DB_OLAP_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
     REDIS_CACHE_HOST: redis-cache
     REDIS_CACHE_PORT: 6379
-    REDIS_QUEUE_HOST: redis-queue
-    REDIS_QUEUE_PORT: 6379
     SWAGGER_ENABLED: "false"
     TZ: America/Lima
   networks:
@@ -51,28 +44,12 @@ services:
         condition: service_started
       redis-cache:
         condition: service_healthy
-      redis-queue:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
       interval: 15s
       timeout: 5s
       retries: 8
       start_period: 45s
-
-  backend-worker:
-    <<: *backend-common
-    container_name: academic_backend_worker
-    command: ["node", "dist/worker.main.js"]
-    depends_on:
-      db-init:
-        condition: service_completed_successfully
-      pgbouncer:
-        condition: service_started
-      redis-cache:
-        condition: service_healthy
-      redis-queue:
-        condition: service_healthy
 
   backend-scheduler:
     <<: *backend-common
@@ -85,10 +62,6 @@ services:
         condition: service_started
       redis-cache:
         condition: service_healthy
-      redis-queue:
-        condition: service_healthy
-      backend-worker:
-        condition: service_started
 
   db-init:
     image: postgres:16-alpine
@@ -114,8 +87,7 @@ services:
     container_name: academic_pgbouncer
     environment:
       DATABASE_URLS: >-
-        postgres://academic:${DB_PASSWORD:?DB_PASSWORD is required}@citas-db:5440/academic_oltp,
-        postgres://academic:${DB_PASSWORD:?DB_PASSWORD is required}@citas-db:5440/academic_olap
+        postgres://academic:${DB_PASSWORD:?DB_PASSWORD is required}@citas-db:5440/academic_oltp
       AUTH_TYPE: scram-sha-256
       LISTEN_PORT: 6432
       POOL_MODE: transaction
@@ -155,27 +127,6 @@ services:
       timeout: 3s
       retries: 5
 
-  redis-queue:
-    image: redis:7-alpine
-    container_name: academic_redis_queue
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
-    environment:
-      TZ: America/Lima
-    volumes:
-      - redis_queue_data:/data
-    expose:
-      - "6379"
-    networks:
-      - academic_network
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-
 networks:
   academic_network:
     driver: bridge
@@ -185,7 +136,3 @@ networks:
   dokploy_network:
     external: true
     name: dokploy-network
-
-volumes:
-  redis_queue_data:
-    driver: local

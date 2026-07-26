@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useToastStore } from '../stores/toastStore';
 import api from '../services/api';
+import { useAnalisisRealtime } from '../hooks/useAnalisisRealtime';
 
 interface EstadisticasGenerales {
     total_estudiantes: number;
@@ -42,8 +43,6 @@ interface ComparativaCursos {
     total_estudiantes: number;
     tendencia: string;
 }
-
-const VERSION_POLL_MS = 30_000;
 
 const distribucionConfig = [
     {
@@ -134,39 +133,12 @@ export const Analisis = () => {
         fechasRef.current = { inicio: fechaInicio, fin: fechaFin };
     }, [fechaInicio, fechaFin]);
 
-    useEffect(() => {
-        const pollVersion = async () => {
-            if (document.visibilityState !== 'visible') return;
-            try {
-                const res = await api.get('/analisis/version');
-                const next = Number(res.data?.data?.version ?? 0);
-                if (versionRef.current == null) {
-                    versionRef.current = next;
-                    return;
-                }
-                if (next !== versionRef.current) {
-                    versionRef.current = next;
-                    const { inicio, fin } = fechasRef.current;
-                    await cargarDatos(inicio || undefined, fin || undefined, true);
-                }
-            } catch {
-                // Silencioso: el polling no debe romper la UI
-            }
-        };
-
-        const intervalId = window.setInterval(pollVersion, VERSION_POLL_MS);
-        const onVisibility = () => {
-            if (document.visibilityState === 'visible') {
-                void pollVersion();
-            }
-        };
-        document.addEventListener('visibilitychange', onVisibility);
-
-        return () => {
-            window.clearInterval(intervalId);
-            document.removeEventListener('visibilitychange', onVisibility);
-        };
+    const refreshSilent = useCallback(() => {
+        const { inicio, fin } = fechasRef.current;
+        void cargarDatos(inicio || undefined, fin || undefined, true);
     }, [cargarDatos]);
+
+    useAnalisisRealtime(refreshSilent, versionRef);
 
     const handleFiltrar = () => {
         if (!fechaInicio || !fechaFin) {

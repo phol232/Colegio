@@ -4,12 +4,10 @@
  *
  * Uso:
  *   node Database/scripts/apply-sql.mjs --oltp
- *   node Database/scripts/apply-sql.mjs --olap
- *   node Database/scripts/apply-sql.mjs --oltp --olap
  *
  * Conexión (prioridad):
- *   1) DATABASE_URL / DATABASE_URL_OLAP
- *   2) DB_* / DB_OLAP_* (host, port, database, username, password)
+ *   1) DATABASE_URL
+ *   2) DB_* (host, port, database, username, password)
  *
  * Requiere: `pg` instalado (p. ej. dependencia de Backend con NODE_PATH=Backend/node_modules)
  */
@@ -30,12 +28,8 @@ const OLTP_FILES = [
   'schema_oltp.sql',
   'migrations_extra/oltp_schema_delta.sql',
   'migrations_extra/configuracion_sistema.sql',
-  // matricula_anual + sync_estudiantes_cursos: TypeORM (Backend migrationsRun)
-];
-
-const OLAP_FILES = [
-  'schema_olap.sql',
-  'migrations_extra/olap_schema_delta.sql',
+  // matricula_anual, sync_estudiantes_cursos, analytics_indexes:
+  // TypeORM (Backend migrationsRun)
 ];
 
 function loadDotEnv(filePath) {
@@ -65,13 +59,16 @@ loadDotEnv(path.join(REPO_ROOT, 'Backend', '.env'));
 
 function parseArgs(argv) {
   const flags = new Set(argv.slice(2));
-  const wantOltp = flags.has('--oltp');
-  const wantOlap = flags.has('--olap');
-  if (!wantOltp && !wantOlap) {
-    console.error('Uso: node apply-sql.mjs --oltp | --olap | --oltp --olap');
+  const wantOltp = flags.has('--oltp') || flags.size === 0;
+  if (flags.has('--olap')) {
+    console.error('OLAP ya no existe. Usa solo: node apply-sql.mjs --oltp');
     process.exit(1);
   }
-  return { wantOltp, wantOlap };
+  if (!wantOltp && flags.size > 0 && !flags.has('--oltp')) {
+    console.error('Uso: node apply-sql.mjs --oltp');
+    process.exit(1);
+  }
+  return { wantOltp };
 }
 
 function configFromParts({ host, port, database, user, password }) {
@@ -94,19 +91,6 @@ function oltpConfig() {
     database: process.env.DB_DATABASE || 'academic_oltp',
     user: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
-  });
-}
-
-function olapConfig() {
-  if (process.env.DATABASE_URL_OLAP) {
-    return { connectionString: process.env.DATABASE_URL_OLAP };
-  }
-  return configFromParts({
-    host: process.env.DB_OLAP_HOST || process.env.DB_HOST,
-    port: process.env.DB_OLAP_PORT || process.env.DB_PORT,
-    database: process.env.DB_OLAP_DATABASE || 'academic_olap',
-    user: process.env.DB_OLAP_USERNAME || process.env.DB_USERNAME,
-    password: process.env.DB_OLAP_PASSWORD || process.env.DB_PASSWORD,
   });
 }
 
@@ -138,13 +122,10 @@ async function applyFiles(label, clientConfig, relativeFiles) {
 }
 
 async function main() {
-  const { wantOltp, wantOlap } = parseArgs(process.argv);
+  const { wantOltp } = parseArgs(process.argv);
 
   if (wantOltp) {
     await applyFiles('OLTP (academic_oltp)', oltpConfig(), OLTP_FILES);
-  }
-  if (wantOlap) {
-    await applyFiles('OLAP (academic_olap)', olapConfig(), OLAP_FILES);
   }
 }
 

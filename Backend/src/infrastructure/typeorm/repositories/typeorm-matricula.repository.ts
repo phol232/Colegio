@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -20,7 +22,7 @@ import {
 import { MatriculaEligibilityService } from '@/domain/services/matricula-eligibility.service';
 import { IUnitOfWork } from '@/domain/ports/unit-of-work.port';
 import { UNIT_OF_WORK } from '@/domain/ports/tokens';
-import { Inject } from '@nestjs/common';
+import { AnalisisRealtimeService } from '@/modules/analisis/analisis-realtime.service';
 import { ConfiguracionSistemaEntity } from '../entities/oltp/configuracion-sistema.entity';
 import { PeriodoAcademicoEntity } from '../entities/oltp/periodo-academico.entity';
 import { MatriculaEntity } from '../entities/oltp/matricula.entity';
@@ -104,6 +106,8 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
     @InjectRepository(UsuarioEntity, OLTP_CONNECTION)
     private readonly userRepo: Repository<UsuarioEntity>,
     private readonly eligibility: MatriculaEligibilityService,
+    @Inject(forwardRef(() => AnalisisRealtimeService))
+    private readonly analisisRealtime: AnalisisRealtimeService,
   ) {}
 
   async getPeriodoActivo(): Promise<PeriodoRecord | null> {
@@ -358,9 +362,11 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
     seccionId: number,
     adminId: number,
   ): Promise<MatriculaRecord> {
-    return this.unitOfWork.transaction(async (manager) =>
+    const result = await this.unitOfWork.transaction(async (manager) =>
       this.aprobarMatriculaWithManager(manager, matriculaId, seccionId, adminId),
     );
+    void this.analisisRealtime.notificarCambio();
+    return result;
   }
 
   async rechazarMatricula(
@@ -390,9 +396,11 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
     adminId: number,
     observaciones?: string,
   ): Promise<MatriculaRecord> {
-    return this.unitOfWork.transaction(async (manager) =>
+    const result = await this.unitOfWork.transaction(async (manager) =>
       this.retirarMatriculaWithManager(manager, matriculaId, adminId, observaciones),
     );
+    void this.analisisRealtime.notificarCambio();
+    return result;
   }
 
   async reasignarSeccion(
@@ -400,9 +408,11 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
     seccionId: number,
     adminId: number,
   ): Promise<MatriculaRecord> {
-    return this.unitOfWork.transaction(async (manager) =>
+    const result = await this.unitOfWork.transaction(async (manager) =>
       this.reasignarSeccionWithManager(manager, matriculaId, seccionId, adminId),
     );
+    void this.analisisRealtime.notificarCambio();
+    return result;
   }
 
   async registrarDecision(
@@ -609,6 +619,7 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
       fechaMatricula: fecha,
       anioAcademico,
     });
+    void this.analisisRealtime.notificarCambio(cursoId);
   }
 
   async assignStudentsToSeccionLegacy(
@@ -669,12 +680,14 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
         );
       }
     });
+    void this.analisisRealtime.notificarCambio();
   }
 
   async reconcileEstudianteCursosForMatricula(matriculaId: number): Promise<void> {
     await this.unitOfWork.transaction(async (manager) => {
       await this.reconcileEstudianteCursosForMatriculaWithManager(manager, matriculaId);
     });
+    void this.analisisRealtime.notificarCambio();
   }
 
   async reconcileActiveMatriculasForSeccion(
@@ -696,6 +709,7 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
         );
       }
     });
+    void this.analisisRealtime.notificarCambio();
   }
 
   private async aprobarMatriculaWithManager(

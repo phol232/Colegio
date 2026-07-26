@@ -4,7 +4,6 @@ import Redis from 'ioredis';
 import { CacheService } from './cache.service';
 
 export const CACHE_REDIS = 'CACHE_REDIS';
-export const QUEUE_REDIS = 'QUEUE_REDIS';
 
 @Global()
 @Module({
@@ -22,18 +21,8 @@ export const QUEUE_REDIS = 'QUEUE_REDIS';
           lazyConnect: false,
         }),
     },
-    {
-      provide: QUEUE_REDIS,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        host: config.get<string>('redisQueue.host'),
-        port: config.get<number>('redisQueue.port'),
-        db: config.get<number>('redisQueue.db'),
-        maxRetriesPerRequest: null,
-      }),
-    },
     CacheService,
   ],
-  exports: [CACHE_REDIS, QUEUE_REDIS, CacheService],
+  exports: [CACHE_REDIS, CacheService],
 })
 export class RedisModule {}

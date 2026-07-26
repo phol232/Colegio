@@ -21,11 +21,11 @@ pnpm migration:run:oltp:dist # producción (tras build)
 pnpm migration:show:oltp     # ver estado
 ```
 
-Desactivar en worker/scheduler (ya lo hace el código) o con `TYPEORM_MIGRATIONS_RUN=false`.
+Desactivar en scheduler con `TYPEORM_MIGRATIONS_RUN=false` (ya lo hace el código vía `SCHEDULER_ROLE`).
 
 ## Etapa 1 — Esquema base
 
-Base OLTP/OLAP vía `Database/docker-init` o `apply-sql.mjs` (schema + deltas).
+Base OLTP vía `Database/docker-init` o `apply-sql.mjs` (schema + deltas).
 La matrícula anual **no** va en el init SQL: la aplica el backend.
 
 ## Etapa 2 — Backend

@@ -1,5 +1,4 @@
-import { Injectable } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import {
@@ -11,7 +10,7 @@ import {
   PromedioUnidadRecord,
 } from '@/domain/ports/grade.repository.port';
 import { PromedioCalculatorService } from '@/domain/services/promedio-calculator.service';
-import { RENDIMIENTO_CURSO_CAMBIADO } from '@/modules/etl/rendimiento.events';
+import { AnalisisRealtimeService } from '@/modules/analisis/analisis-realtime.service';
 import { EvaluacionEntity } from '../entities/oltp/evaluacion.entity';
 import { EstudianteCursoEntity } from '../entities/oltp/estudiante-curso.entity';
 import { NotaDetalleEntity } from '../entities/oltp/nota-detalle.entity';
@@ -70,7 +69,8 @@ export class TypeOrmGradeRepository implements IGradeRepository {
     @InjectRepository(EstudianteCursoEntity, OLTP_CONNECTION)
     private readonly estudianteCursoRepo: Repository<EstudianteCursoEntity>,
     private readonly promedioCalculator: PromedioCalculatorService,
-    private readonly eventEmitter: EventEmitter2,
+    @Inject(forwardRef(() => AnalisisRealtimeService))
+    private readonly analisisRealtime: AnalisisRealtimeService,
   ) {}
 
   async findNotaDetalleById(id: number): Promise<NotaDetalleRecord | null> {
@@ -314,7 +314,7 @@ export class TypeOrmGradeRepository implements IGradeRepository {
   }
 
   private emitCursoCambiado(cursoId: number) {
-    this.eventEmitter.emit(RENDIMIENTO_CURSO_CAMBIADO, { cursoId });
+    void this.analisisRealtime.notificarCambio(cursoId);
   }
 
   private async recalcularPromedioFromNota(

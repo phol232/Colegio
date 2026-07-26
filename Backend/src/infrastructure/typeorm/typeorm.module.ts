@@ -19,11 +19,9 @@ import { EvaluationWeightPolicyService } from '@/domain/services/evaluation-weig
 import { GradeLiteralService } from '@/domain/services/grade-literal.service';
 import { PromedioCalculatorService } from '@/domain/services/promedio-calculator.service';
 import { MatriculaEligibilityService } from '@/domain/services/matricula-eligibility.service';
-import { OLAP_ENTITIES } from './entities/olap';
 import { OLTP_ENTITIES } from './entities/oltp';
 import { OLTP_MIGRATIONS } from './migrations/oltp';
 import {
-  OLAP_CONNECTION,
   OLTP_CONNECTION,
   TypeOrmAdminRepository,
   TypeOrmAnalyticsRepository,
@@ -37,13 +35,12 @@ import {
   TypeOrmUserRepository,
 } from './repositories';
 
-/** Por defecto el API aplica migraciones al arrancar. Worker/scheduler: TYPEORM_MIGRATIONS_RUN=false */
+/** Por defecto el API aplica migraciones al arrancar. Scheduler: TYPEORM_MIGRATIONS_RUN=false */
 function shouldRunOltpMigrations(): boolean {
   const flag = process.env.TYPEORM_MIGRATIONS_RUN?.trim().toLowerCase();
   if (flag === 'false' || flag === '0' || flag === 'off') return false;
   if (flag === 'true' || flag === '1' || flag === 'on') return true;
-  // Sin flag: solo el proceso API (main), no worker/scheduler.
-  return !process.env.WORKER_ROLE && !process.env.SCHEDULER_ROLE;
+  return !process.env.SCHEDULER_ROLE;
 }
 
 const repositoryProviders = [
@@ -90,24 +87,7 @@ const domainServices = [
         logging: false,
       }),
     }),
-    TypeOrmModule.forRootAsync({
-      name: OLAP_CONNECTION,
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres' as const,
-        host: config.get<string>('olap.host'),
-        port: config.get<number>('olap.port'),
-        database: config.get<string>('olap.database'),
-        username: config.get<string>('olap.user'),
-        password: config.get<string>('olap.password'),
-        entities: OLAP_ENTITIES,
-        synchronize: false,
-        logging: false,
-      }),
-    }),
     TypeOrmModule.forFeature(OLTP_ENTITIES, OLTP_CONNECTION),
-    TypeOrmModule.forFeature(OLAP_ENTITIES, OLAP_CONNECTION),
   ],
   providers: [...domainServices, ...repositoryProviders],
   exports: [

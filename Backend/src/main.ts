@@ -8,6 +8,7 @@ import compression from 'compression';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { RedisIoAdapter } from './common/redis/redis-io.adapter';
 
 /** Límite JSON para avatares base64 (~5 MB imagen + overhead ≈ 8 MB). */
 const JSON_BODY_LIMIT = '8mb';
@@ -17,11 +18,19 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
+  const redisIoAdapter = new RedisIoAdapter(app);
+  await redisIoAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisIoAdapter);
+
   app.setGlobalPrefix('api');
   app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
   app.useBodyParser('urlencoded', { extended: true, limit: JSON_BODY_LIMIT });
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
   app.use(compression());
 
   const corsOrigin = config.get<string>('corsOrigin') ?? '*';
@@ -46,7 +55,7 @@ async function bootstrap() {
   if (process.env.SWAGGER_ENABLED !== 'false') {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('Academic Management API')
-      .setDescription('API NestJS — contrato migrado desde Laravel')
+      .setDescription('API NestJS — Academic Management')
       .setVersion(config.get<string>('appVersion') ?? '1.0.0')
       .addBearerAuth()
       .build();

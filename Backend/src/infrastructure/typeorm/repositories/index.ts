@@ -7,4 +7,4 @@ export { TypeOrmAttendanceRepository } from './typeorm-attendance.repository';
 export { TypeOrmEvaluationRepository } from './typeorm-evaluation.repository';
 export { TypeOrmGradeRepository } from './typeorm-grade.repository';
 export { TypeOrmAdminRepository } from './typeorm-admin.repository';
-export { TypeOrmAnalyticsRepository, OLAP_CONNECTION } from './typeorm-analytics.repository';
+export { TypeOrmAnalyticsRepository } from './typeorm-analytics.repository';

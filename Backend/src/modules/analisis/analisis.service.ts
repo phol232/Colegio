@@ -12,7 +12,7 @@ import { CacheService } from '@/common/redis/cache.service';
 import { CACHE_REDIS } from '@/common/redis/redis.module';
 import { AuthUser } from '@/common/guards/auth-token.guard';
 
-const ANALISIS_CACHE_TTL = 120;
+const ANALISIS_CACHE_TTL = 600;
 const ANALISIS_VERSION_KEY = 'analisis:version';
 
 @Injectable()
@@ -78,9 +78,9 @@ export class AnalisisService {
   ) {
     await this.assertCursoAccess(user, cursoId);
     const docenteId = this.scopeDocenteId(user);
-    const cacheKey = `analisis:curso:${cursoId}:${this.scopeCacheSuffix(docenteId)}:${this.hashFechas(fechaInicio, fechaFin)}`;
+    const namespace = `curso:${cursoId}:${this.scopeCacheSuffix(docenteId)}:${this.hashFechas(fechaInicio, fechaFin)}`;
 
-    return this.cache.remember(cacheKey, ANALISIS_CACHE_TTL, async () => {
+    return this.cache.rememberVersioned(namespace, ANALISIS_CACHE_TTL, async () => {
       const row = await this.analyticsRepository.getCoursePerformance(cursoId, {
         fechaInicio,
         fechaFin,
@@ -139,9 +139,9 @@ export class AnalisisService {
       await this.assertCursoAccess(user, cursoId);
     }
     const docenteId = this.scopeDocenteId(user);
-    const cacheKey = `analisis:estudiante:${estudianteId}:curso:${cursoId ?? 'all'}:${this.scopeCacheSuffix(docenteId)}`;
+    const namespace = `estudiante:${estudianteId}:curso:${cursoId ?? 'all'}:${this.scopeCacheSuffix(docenteId)}`;
 
-    return this.cache.remember(cacheKey, ANALISIS_CACHE_TTL, async () => {
+    return this.cache.rememberVersioned(namespace, ANALISIS_CACHE_TTL, async () => {
       const evolucion = await this.analyticsRepository.getStudentEvolution(
         estudianteId,
         cursoId,
@@ -161,9 +161,9 @@ export class AnalisisService {
     fechaFin?: string,
   ) {
     const docenteId = this.scopeDocenteId(user);
-    const cacheKey = `analisis:generales:${this.scopeCacheSuffix(docenteId)}:${this.hashFechas(fechaInicio, fechaFin)}`;
+    const namespace = `generales:${this.scopeCacheSuffix(docenteId)}:${this.hashFechas(fechaInicio, fechaFin)}`;
 
-    return this.cache.remember(cacheKey, ANALISIS_CACHE_TTL, async () => {
+    return this.cache.rememberVersioned(namespace, ANALISIS_CACHE_TTL, async () => {
       const filter = { fechaInicio, fechaFin, docenteId };
       const [datos, dist, bajo] = await Promise.all([
         this.analyticsRepository.getGeneralStats(filter),
@@ -189,9 +189,9 @@ export class AnalisisService {
   async rankingCurso(user: AuthUser, cursoId: number, limite = 10) {
     await this.assertCursoAccess(user, cursoId);
     const docenteId = this.scopeDocenteId(user);
-    const cacheKey = `analisis:ranking:curso:${cursoId}:limite:${limite}:${this.scopeCacheSuffix(docenteId)}`;
+    const namespace = `ranking:curso:${cursoId}:limite:${limite}:${this.scopeCacheSuffix(docenteId)}`;
 
-    return this.cache.remember(cacheKey, ANALISIS_CACHE_TTL, async () => {
+    return this.cache.rememberVersioned(namespace, ANALISIS_CACHE_TTL, async () => {
       return this.analyticsRepository.getCourseRanking(
         cursoId,
         limite,
@@ -206,9 +206,9 @@ export class AnalisisService {
     fechaFin?: string,
   ) {
     const docenteId = this.scopeDocenteId(user);
-    const cacheKey = `analisis:comparativa:${this.scopeCacheSuffix(docenteId)}:${this.hashFechas(fechaInicio, fechaFin)}`;
+    const namespace = `comparativa:${this.scopeCacheSuffix(docenteId)}:${this.hashFechas(fechaInicio, fechaFin)}`;
 
-    return this.cache.remember(cacheKey, ANALISIS_CACHE_TTL, async () => {
+    return this.cache.rememberVersioned(namespace, ANALISIS_CACHE_TTL, async () => {
       const resultados = await this.analyticsRepository.compareCourses({
         fechaInicio,
         fechaFin,

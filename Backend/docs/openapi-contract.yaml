@@ -733,21 +733,21 @@ paths:
       tags: [analisis]
       security: [{ bearerAuth: [] }]
       x-roles: [docente, admin]
-      responses: { '200': { description: OLAP } }
+      responses: { '200': { description: Análisis sobre OLTP } }
 
   /analisis/curso/{id}:
     get:
       tags: [analisis]
       security: [{ bearerAuth: [] }]
       x-roles: [docente, admin]
-      responses: { '200': { description: OLAP curso } }
+      responses: { '200': { description: Análisis curso (OLTP) } }
 
   /analisis/estudiante/{id}:
     get:
       tags: [analisis]
       security: [{ bearerAuth: [] }]
       x-roles: [docente, admin]
-      responses: { '200': { description: OLAP estudiante } }
+      responses: { '200': { description: Análisis estudiante (OLTP) } }
 
   /analisis/estadisticas:
     get:
@@ -970,7 +970,7 @@ paths:
   /health:
     get:
       tags: [health]
-      summary: Health check OLTP + OLAP + Redis
+      summary: Health check OLTP + Redis
       responses:
         '200':
           description: '{ status, timestamp, service, version, checks }'

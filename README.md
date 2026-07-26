@@ -1,6 +1,6 @@
 # Academic Management System
 
-Sistema de gestión académica: React frontend, NestJS API (TypeScript por capas) y PostgreSQL dual (OLTP + OLAP), con Redis para caché y colas.
+Sistema de gestión académica: React frontend, NestJS API (TypeScript por capas) y PostgreSQL OLTP, con Redis para caché y WebSockets (Socket.IO) para análisis en tiempo real.
 
 ## Arquitectura
 
@@ -10,20 +10,18 @@ Sistema de gestión académica: React frontend, NestJS API (TypeScript por capas
 |----------|-----|
 | `nginx` | Reverse proxy del stack local; producción usa Traefik |
 | `frontend` | React SPA local; en producción se despliega en Vercel |
-| `backend-api` | NestJS HTTP (`/api`) |
-| `backend-worker` | BullMQ consumer ETL OLAP |
-| `backend-scheduler` | Cron: incremental cada hora, full 03:00 |
+| `backend-api` | NestJS HTTP (`/api`) + Socket.IO (`/api/socket.io`) |
+| `backend-scheduler` | Cron: limpieza de tokens expirados |
 | `postgres` | PostgreSQL 16 local; producción reutiliza el contenedor `citas-db` |
-| `db-init` | Aplica esquema SQL OLTP/OLAP (una vez) |
-| `pgbouncer` | Pool de conexiones (OLTP + OLAP) |
-| `redis-cache` | Caché / throttle (LRU) |
-| `redis-queue` | BullMQ + locks (`noeviction` + AOF) |
+| `db-init` | Aplica esquema SQL OLTP (una vez) |
+| `pgbouncer` | Pool de conexiones (OLTP) |
+| `redis-cache` | Caché LRU + adaptador Redis de Socket.IO |
 
 ### Backend NestJS
 
 Capas por módulo: `presentation` → `application` → `domain` → `infrastructure`.
 
-La lógica de negocio vive en TypeORM (`Backend/src/`). PostgreSQL conserva solo esquema y constraints.
+La lógica de negocio vive en TypeORM (`Backend/src/`). El módulo `analisis` calcula métricas directamente sobre OLTP, cachea en Redis (claves versionadas) y notifica al frontend vía WebSocket al guardar notas, asistencias o matrícula.
 
 Contrato HTTP: [`Backend/docs/openapi-contract.yaml`](Backend/docs/openapi-contract.yaml)
 
@@ -65,9 +63,9 @@ reutiliza `citas-db:5440` mediante la red externa
 `plataformareservas-reservas-p5sdl3_citas-net`. No crea otro PostgreSQL y
 PgBouncer y Redis no publican puertos en el host.
 
-Antes del primer despliegue deben existir en `citas-db` el rol `academic` y las
-bases `academic_oltp` y `academic_olap`. `DB_PASSWORD` debe coincidir con la
-contraseña de ese rol.
+Antes del primer despliegue deben existir en `citas-db` el rol `academic` y la
+base `academic_oltp`. `DB_PASSWORD` debe coincidir con la contraseña de ese rol.
+La base `academic_olap` (si existe) ya no se usa; puedes ignorarla o borrarla a mano.
 
 ```bash
 cp .env.example .env
@@ -78,41 +76,4 @@ docker compose -f docker-compose.prod.yml exec backend-api \
 ```
 
 En Dokploy, configura el dominio `apicolegio.optrix.cloud` sobre el servicio
-`backend-api`, puerto interno `3000`, y activa HTTPS con Let's Encrypt. Dokploy
-se encarga de inyectar las etiquetas Traefik y conectar su red. En Vercel,
-configura
-`VITE_API_URL=https://apicolegio.optrix.cloud/api`.
-
-### Desarrollo local del Backend
-
-```bash
-cd Backend
-cp .env.example .env
-# Ajustar hosts a localhost / puertos publicados
-corepack enable
-pnpm install
-pnpm run start:dev          # API
-pnpm run start:worker:dev   # Worker
-pnpm run start:scheduler:dev
-```
-
-## API
-
-- Prefijo: `/api`
-- Auth: `Authorization: Bearer <token>`
-- Roles: `docente`, `estudiante`, `padre`, `admin`
-- Docs Swagger (dev): `/api/docs`
-
-### Correcciones respecto a Laravel
-
-- `GET /auth/me` devuelve el usuario del guard
-- `GET /asistencias/estudiante?mes=` usa `get_asistencias_estudiante_por_mes`
-- `GET/PUT /admin/configuracion` implementados
-
-## CI
-
-Workflow: [`.github/workflows/backend-ci.yml`](.github/workflows/backend-ci.yml) — typecheck, tests, build.
-
-## Licencia
-
-Proyecto académico / privado.
+`backend-api` (alias de red `academic-api`).
