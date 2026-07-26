@@ -15,4 +15,4 @@
 
 \echo '=== OLTP base listo ==='
 \echo 'Migraciones TypeORM al arrancar el API (pnpm start:prod):'
-\echo '  matricula_anual → sync_estudiantes_cursos → analytics_indexes → drop-olap'
+\echo '  matricula_anual → sync_estudiantes_cursos → analytics_indexes'
