@@ -1,13 +1,8 @@
 # Database — Academic Management System
 
 Esquema SQL de la base transaccional `academic_oltp`. El análisis se calcula
-directamente sobre OLTP (ya no hay base `academic_olap`).
-
-Para eliminar una base OLAP antigua:
-
-```bash
-psql -U academic -d postgres -f Database/scripts/drop-olap.sql
-```
+directamente sobre OLTP (la base `academic_olap` ya no se usa; se puede dejar
+huérfana o borrarla a mano con `scripts/drop-olap.sql`).
 
 ## Archivos principales
 
@@ -20,7 +15,7 @@ psql -U academic -d postgres -f Database/scripts/drop-olap.sql
 | `init-databases.sql` | `CREATE DATABASE academic_oltp` (primer arranque Docker) |
 | `docker-init/entrypoint.sh` | Aplica schema + deltas en `db-init` |
 | `scripts/apply-sql.mjs` | Aplicador Node (`pnpm apply:oltp`) |
-| `scripts/drop-olap.sql` | Referencia; lo aplica TypeORM `DropOlapDatabase` (o a mano vía :5432) |
+| `scripts/drop-olap.sql` | Opcional / manual: DROP de `academic_olap` si quieres liberar espacio |
 | `pgbouncer.ini` | Pool hacia `academic_oltp` |
 
 ## Aplicar esquema
@@ -35,7 +30,7 @@ cd Database/scripts && pnpm install && pnpm apply:oltp
 NODE_PATH=./node_modules node ../Database/scripts/apply-sql.mjs --oltp
 ```
 
-Las migraciones TypeORM (matrícula, índices de análisis, drop-olap) las aplica el API al arrancar (`migrationsRun`).
+Las migraciones TypeORM (matrícula, índices de análisis) las aplica el API al arrancar (`migrationsRun`).
 
 ## Funciones PL/pgSQL legacy
 

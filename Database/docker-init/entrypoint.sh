@@ -21,4 +21,4 @@ psql -h "$PGHOST" -U "$PGUSER" -d academic_oltp -f /database/migrations_extra/co
 
 echo "==> Inicialización de base completada."
 echo "    Migraciones TypeORM al arrancar el API (migrationsRun):"
-echo "    matricula_anual → sync_estudiantes_cursos → analytics_indexes → drop-olap"
+echo "    matricula_anual → sync_estudiantes_cursos → analytics_indexes"

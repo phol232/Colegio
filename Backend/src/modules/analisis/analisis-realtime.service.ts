@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { CacheService } from '@/common/redis/cache.service';
+import { AnalisisRealtimeBridge } from '@/common/analisis/analisis-realtime.bridge';
 import { AnalisisGateway } from './analisis.gateway';
 
 const COALESCE_MS = 300;
@@ -13,16 +14,25 @@ interface PendingNotify {
 /**
  * Notifica cambios de análisis: bump de versión Redis + emit WebSocket.
  * Nunca lanza: una caída del canal no debe tumbar el guardado de notas.
+ * Se registra en AnalisisRealtimeBridge para que los repos TypeORM
+ * (AppTypeOrmModule) puedan notificar sin depender de este módulo.
  */
 @Injectable()
-export class AnalisisRealtimeService {
+export class AnalisisRealtimeService implements OnModuleInit {
   private readonly logger = new Logger(AnalisisRealtimeService.name);
   private readonly pending = new Map<string, PendingNotify>();
 
   constructor(
     private readonly cache: CacheService,
     private readonly gateway: AnalisisGateway,
+    private readonly bridge: AnalisisRealtimeBridge,
   ) {}
+
+  onModuleInit() {
+    this.bridge.register((cursoId, docenteId) =>
+      this.notificarCambio(cursoId, docenteId),
+    );
+  }
 
   async notificarCambio(cursoId?: number, docenteId?: number): Promise<void> {
     try {

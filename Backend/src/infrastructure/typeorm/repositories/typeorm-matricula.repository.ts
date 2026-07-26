@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  forwardRef,
   Inject,
   Injectable,
   NotFoundException,
@@ -22,7 +21,7 @@ import {
 import { MatriculaEligibilityService } from '@/domain/services/matricula-eligibility.service';
 import { IUnitOfWork } from '@/domain/ports/unit-of-work.port';
 import { UNIT_OF_WORK } from '@/domain/ports/tokens';
-import { AnalisisRealtimeService } from '@/modules/analisis/analisis-realtime.service';
+import { AnalisisRealtimeBridge } from '@/common/analisis/analisis-realtime.bridge';
 import { ConfiguracionSistemaEntity } from '../entities/oltp/configuracion-sistema.entity';
 import { PeriodoAcademicoEntity } from '../entities/oltp/periodo-academico.entity';
 import { MatriculaEntity } from '../entities/oltp/matricula.entity';
@@ -106,8 +105,7 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
     @InjectRepository(UsuarioEntity, OLTP_CONNECTION)
     private readonly userRepo: Repository<UsuarioEntity>,
     private readonly eligibility: MatriculaEligibilityService,
-    @Inject(forwardRef(() => AnalisisRealtimeService))
-    private readonly analisisRealtime: AnalisisRealtimeService,
+    private readonly analisisRealtime: AnalisisRealtimeBridge,
   ) {}
 
   async getPeriodoActivo(): Promise<PeriodoRecord | null> {

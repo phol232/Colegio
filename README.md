@@ -65,7 +65,7 @@ PgBouncer y Redis no publican puertos en el host.
 
 Antes del primer despliegue deben existir en `citas-db` el rol `academic` y la
 base `academic_oltp`. `DB_PASSWORD` debe coincidir con la contraseña de ese rol.
-Si aún existe `academic_olap`, bórrala con `Database/scripts/drop-olap.sql`.
+La base `academic_olap` (si existe) ya no se usa; puedes ignorarla o borrarla a mano.
 
 ```bash
 cp .env.example .env
