@@ -9,6 +9,7 @@ import {
     CalendarRange,
 } from 'lucide-react';
 import { useToastStore } from '../stores/toastStore';
+import { useThemeStore } from '../stores/themeStore';
 import api from '../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,7 +58,6 @@ const roleLabels: Record<string, string> = {
 const idiomaOptions = [
     { value: 'es', label: 'Español' },
     { value: 'en', label: 'English' },
-    { value: 'fr', label: 'Français' },
 ];
 
 const tamanoFuenteOptions = [
@@ -88,10 +88,10 @@ interface ToggleRowProps {
 }
 
 const ToggleRow = ({ id, title, description, checked, onChange }: ToggleRowProps) => (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
         <div>
-            <p className="text-sm font-medium text-slate-900">{title}</p>
-            <p className="text-xs text-slate-500">{description}</p>
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{title}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{description}</p>
         </div>
         <label htmlFor={id} className="relative inline-flex shrink-0 cursor-pointer items-center">
             <input
@@ -101,7 +101,7 @@ const ToggleRow = ({ id, title, description, checked, onChange }: ToggleRowProps
                 onChange={(e) => onChange(e.target.checked)}
                 className="peer sr-only"
             />
-            <div className="h-6 w-11 rounded-full bg-slate-200 transition-colors peer-checked:bg-sidebar-bg peer-focus-visible:ring-2 peer-focus-visible:ring-sidebar-bg peer-focus-visible:ring-offset-2 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all peer-checked:after:translate-x-5" />
+            <div className="h-6 w-11 rounded-full bg-slate-200 transition-colors peer-checked:bg-sidebar-bg peer-focus-visible:ring-2 peer-focus-visible:ring-sidebar-bg peer-focus-visible:ring-offset-2 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all peer-checked:after:translate-x-5 dark:bg-slate-600 dark:after:border-slate-500 dark:after:bg-slate-200" />
         </label>
     </div>
 );
@@ -123,31 +123,46 @@ export const Configuracion = () => {
     });
     const [grados, setGrados] = useState<GradoOption[]>([]);
 
-    const [modoOscuro, setModoOscuro] = useState(false);
+    const [modoOscuro, setModoOscuro] = useState(() => useThemeStore.getState().darkMode);
     const [idioma, setIdioma] = useState('es');
     const [notificaciones, setNotificaciones] = useState(true);
     const [notificacionesEmail, setNotificacionesEmail] = useState(true);
     const [tamanoFuente, setTamanoFuente] = useState('mediano');
     
     const showToast = useToastStore((s) => s.show);
+    const setDarkMode = useThemeStore((s) => s.setDarkMode);
 
     useEffect(() => {
         cargarDatos();
 
         const modoOscuroGuardado = localStorage.getItem('modoOscuro') === 'true';
         const idiomaGuardado = localStorage.getItem('idioma') || 'es';
+        const idiomaValido = idiomaOptions.some((o) => o.value === idiomaGuardado) ? idiomaGuardado : 'es';
         const notificacionesGuardadas = localStorage.getItem('notificaciones') !== 'false';
         const emailNotif = localStorage.getItem('email_notifications') !== 'false';
         const tamanoFuenteGuardado = localStorage.getItem('tamanoFuente') || 'mediano';
 
         setModoOscuro(modoOscuroGuardado);
-        setIdioma(idiomaGuardado);
+        setIdioma(idiomaValido);
+        if (idiomaValido !== idiomaGuardado) {
+            localStorage.setItem('idioma', idiomaValido);
+        }
         setNotificaciones(notificacionesGuardadas);
         setNotificacionesEmail(emailNotif);
         setTamanoFuente(tamanoFuenteGuardado);
 
-        if (modoOscuroGuardado) {
-            document.documentElement.classList.add('dark');
+        if (tamanoFuenteGuardado) {
+            const root = document.documentElement;
+            switch (tamanoFuenteGuardado) {
+                case 'pequeno':
+                    root.style.fontSize = '14px';
+                    break;
+                case 'grande':
+                    root.style.fontSize = '18px';
+                    break;
+                default:
+                    root.style.fontSize = '16px';
+            }
         }
     }, []);
 
@@ -223,22 +238,7 @@ export const Configuracion = () => {
 
     const handleCambiarModoOscuro = (activado: boolean) => {
         setModoOscuro(activado);
-        localStorage.setItem('modoOscuro', activado ? 'true' : 'false');
-        localStorage.setItem('tema', activado ? 'oscuro' : 'claro');
-
-        const html = document.documentElement;
-        const body = document.body;
-
-        if (activado) {
-            html.style.backgroundColor = '#0f172a';
-            body.style.backgroundColor = '#0f172a';
-            body.style.color = '#e2e8f0';
-        } else {
-            html.style.backgroundColor = '';
-            body.style.backgroundColor = '';
-            body.style.color = '';
-        }
-
+        setDarkMode(activado);
         showToast(`Modo ${activado ? 'oscuro' : 'claro'} activado.`, 'success', 3500, 'Preferencia guardada');
     };
 
@@ -296,10 +296,10 @@ export const Configuracion = () => {
             <div className="flex justify-center px-4 py-8 md:px-6">
                 <div className="w-full max-w-5xl">
                     <div className="mb-8 text-center">
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl dark:text-slate-100">
                             Configuración
                         </h1>
-                        <p className="mt-2 text-sm text-slate-500 md:text-base">
+                        <p className="mt-2 text-sm text-slate-500 md:text-base dark:text-slate-400">
                             Personaliza tu experiencia y ajustes del sistema
                         </p>
                     </div>
@@ -359,10 +359,10 @@ export const Configuracion = () => {
                                         onChange={handleCambiarModoOscuro}
                                     />
 
-                                    <div className="rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-3">
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
                                         <div className="mb-3 flex items-center gap-2">
-                                            <Type className="h-4 w-4 text-slate-500" />
-                                            <p className="text-sm font-medium text-slate-900">Tamaño de fuente</p>
+                                            <Type className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Tamaño de fuente</p>
                                         </div>
                                         <div className="flex gap-2">
                                             {tamanoFuenteOptions.map((opt) => (
@@ -374,7 +374,7 @@ export const Configuracion = () => {
                                                         'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
                                                         tamanoFuente === opt.value
                                                             ? 'border-sidebar-bg bg-sidebar-bg text-white'
-                                                            : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
+                                                            : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700',
                                                     )}
                                                 >
                                                     {opt.label}
@@ -465,14 +465,14 @@ export const Configuracion = () => {
                                                 />
                                             </div>
 
-                                            <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                                            <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
                                                 <div className="mb-4 flex items-center gap-2">
                                                     <CalendarRange className="h-4 w-4 text-sidebar-bg" />
                                                     <div>
-                                                        <p className="text-sm font-semibold text-slate-900">
+                                                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                                                             Período académico
                                                         </p>
-                                                        <p className="text-xs text-slate-500">
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">
                                                             Controla el año lectivo y la ventana de matrícula
                                                         </p>
                                                     </div>
@@ -607,12 +607,12 @@ export const Configuracion = () => {
                                             </div>
 
                                             <div className="md:col-span-2">
-                                                <div className="flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-3">
+                                                <div className="flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/40">
                                                     <div>
-                                                        <p className="text-sm font-medium text-amber-900">
+                                                        <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
                                                             Modo mantenimiento
                                                         </p>
-                                                        <p className="text-xs text-amber-700">
+                                                        <p className="text-xs text-amber-700 dark:text-amber-300">
                                                             Desactiva el acceso al sistema temporalmente
                                                         </p>
                                                     </div>

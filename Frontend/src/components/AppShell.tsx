@@ -6,7 +6,7 @@ import { getDashboardPath } from '../utils/dashboardPath';
 import { Layout } from './Layout';
 
 const contentFallback = (
-  <div className="flex flex-1 items-center justify-center py-24 text-sm text-slate-500">
+  <div className="flex flex-1 items-center justify-center py-24 text-sm text-slate-500 dark:text-slate-400">
     Cargando…
   </div>
 );
@@ -68,7 +68,7 @@ export const AppShell = () => {
 
   if (checkingMaintenance) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">
+      <div className="min-h-screen flex items-center justify-center text-gray-500 dark:text-slate-400">
         Verificando acceso...
       </div>
     );

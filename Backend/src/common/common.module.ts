@@ -8,11 +8,11 @@ import { MaintenanceService } from './services/maintenance.service';
 
 @Global()
 @Module({
-  imports: [AppTypeOrmModule, RedisModule],
+  imports: [RedisModule, AppTypeOrmModule],
   providers: [AuthTokenGuard, MaintenanceGuard, MaintenanceService, RolesGuard],
   exports: [
-    AppTypeOrmModule,
     RedisModule,
+    AppTypeOrmModule,
     AuthTokenGuard,
     MaintenanceGuard,
     MaintenanceService,

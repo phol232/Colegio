@@ -76,7 +76,7 @@ const prefetchRoutes = () => {
 };
 
 const pageFallback = (
-  <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600">
+  <div className="flex min-h-screen items-center justify-center bg-background text-sm text-slate-600 dark:text-slate-400">
     Cargando…
   </div>
 );

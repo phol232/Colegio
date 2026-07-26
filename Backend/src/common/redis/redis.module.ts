@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { CacheService } from './cache.service';
+import { AnalisisRealtimeBridge } from '../analisis/analisis-realtime.bridge';
 
 export const CACHE_REDIS = 'CACHE_REDIS';
 
@@ -22,7 +23,8 @@ export const CACHE_REDIS = 'CACHE_REDIS';
         }),
     },
     CacheService,
+    AnalisisRealtimeBridge,
   ],
-  exports: [CACHE_REDIS, CacheService],
+  exports: [CACHE_REDIS, CacheService, AnalisisRealtimeBridge],
 })
 export class RedisModule {}

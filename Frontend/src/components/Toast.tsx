@@ -12,17 +12,17 @@ const icons: Record<ToastType, typeof AlertCircle> = {
 };
 
 const styles: Record<ToastType, string> = {
-    error: 'border-red-200 bg-white text-slate-900',
-    success: 'border-green-200 bg-white text-slate-900',
-    info: 'border-slate-200 bg-white text-slate-900',
-    warning: 'border-amber-200 bg-white text-slate-900',
+    error: 'border-red-200 bg-white text-slate-900 dark:border-red-800 dark:bg-slate-800 dark:text-slate-100',
+    success: 'border-green-200 bg-white text-slate-900 dark:border-green-800 dark:bg-slate-800 dark:text-slate-100',
+    info: 'border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
+    warning: 'border-amber-200 bg-white text-slate-900 dark:border-amber-800 dark:bg-slate-800 dark:text-slate-100',
 };
 
 const iconStyles: Record<ToastType, string> = {
-    error: 'text-red-600 bg-red-50',
-    success: 'text-green-600 bg-green-50',
-    info: 'text-sidebar-bg bg-slate-100',
-    warning: 'text-amber-600 bg-amber-50',
+    error: 'text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400',
+    success: 'text-green-600 bg-green-50 dark:bg-green-950 dark:text-green-400',
+    info: 'text-sidebar-bg bg-slate-100 dark:bg-slate-700 dark:text-slate-200',
+    warning: 'text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400',
 };
 
 export const Toast = () => {
@@ -67,14 +67,14 @@ export const Toast = () => {
                     <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1 pt-0.5">
-                    <p className="text-sm font-semibold text-slate-900">{title ?? 'Aviso'}</p>
-                    <p className="mt-0.5 text-sm leading-snug text-slate-600 whitespace-pre-line">{message}</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title ?? 'Aviso'}</p>
+                    <p className="mt-0.5 text-sm leading-snug text-slate-600 dark:text-slate-300 whitespace-pre-line">{message}</p>
                 </div>
                 <button
                     type="button"
                     onClick={hide}
                     aria-label="Cerrar"
-                    className="shrink-0 rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                    className="shrink-0 rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
                 >
                     <X className="h-4 w-4" />
                 </button>

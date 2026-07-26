@@ -21,6 +21,7 @@ import { PromedioCalculatorService } from '@/domain/services/promedio-calculator
 import { MatriculaEligibilityService } from '@/domain/services/matricula-eligibility.service';
 import { OLTP_ENTITIES } from './entities/oltp';
 import { OLTP_MIGRATIONS } from './migrations/oltp';
+import { RedisModule } from '@/common/redis/redis.module';
 import {
   OLTP_CONNECTION,
   TypeOrmAdminRepository,
@@ -68,6 +69,7 @@ const domainServices = [
 @Global()
 @Module({
   imports: [
+    RedisModule,
     TypeOrmModule.forRootAsync({
       name: OLTP_CONNECTION,
       imports: [ConfigModule],

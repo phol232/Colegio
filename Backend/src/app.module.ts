@@ -40,6 +40,7 @@ import { AnalisisModule } from './modules/analisis/analisis.module';
       ],
     }),
     CommonModule,
+    AnalisisModule,
     AuthModule,
     PerfilModule,
     MatriculaModule,
@@ -52,7 +53,6 @@ import { AnalisisModule } from './modules/analisis/analisis.module';
     PromediosModule,
     AdminModule,
     PadresModule,
-    AnalisisModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthTokenGuard },

@@ -248,12 +248,12 @@ export const Layout = ({ children }: LayoutProps) => {
             {/* Main Content with Header */}
             <div className="flex-1 flex flex-col overflow-hidden ml-64">
                 {/* Top Header */}
-                <header className="bg-background-white border-b border-border px-6 py-3 flex items-center justify-end">
+                <header className="bg-background-white border-b border-border px-6 py-3 flex items-center justify-end dark:border-slate-700">
                     {/* Menú de perfil */}
                     <div className="relative">
                         <button
                             onClick={() => setMenuPerfilAbierto(!menuPerfilAbierto)}
-                            className="flex items-center space-x-3 hover:bg-background rounded-lg px-3 py-2 transition-colors"
+                            className="flex items-center space-x-3 hover:bg-background rounded-lg px-3 py-2 transition-colors dark:hover:bg-slate-800"
                         >
                             {user?.avatar ? (
                                 <img
@@ -270,8 +270,8 @@ export const Layout = ({ children }: LayoutProps) => {
                                 {user?.name.charAt(0).toUpperCase()}
                             </div>
                             <div className="text-left">
-                                <p className="text-sm font-semibold text-text">{user?.name}</p>
-                                <p className="text-xs text-text-secondary capitalize">{user?.role}</p>
+                                <p className="text-sm font-semibold text-text dark:text-slate-100">{user?.name}</p>
+                                <p className="text-xs text-text-secondary capitalize dark:text-slate-400">{user?.role}</p>
                             </div>
                             <svg className={`w-4 h-4 text-text-secondary transition-transform ${menuPerfilAbierto ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -287,10 +287,10 @@ export const Layout = ({ children }: LayoutProps) => {
                                     onClick={() => setMenuPerfilAbierto(false)}
                                 ></div>
 
-                                <div className="absolute right-0 mt-2 w-56 bg-background-white rounded-lg shadow-xl border border-border py-2 z-20">
-                                    <div className="px-4 py-3 border-b border-border">
-                                        <p className="text-sm font-semibold text-text">{user?.name}</p>
-                                        <p className="text-xs text-text-secondary">{user?.email}</p>
+                                <div className="absolute right-0 mt-2 w-56 bg-background-white rounded-lg shadow-xl border border-border py-2 z-20 dark:border-slate-700 dark:bg-slate-800">
+                                    <div className="px-4 py-3 border-b border-border dark:border-slate-700">
+                                        <p className="text-sm font-semibold text-text dark:text-slate-100">{user?.name}</p>
+                                        <p className="text-xs text-text-secondary dark:text-slate-400">{user?.email}</p>
                                     </div>
 
                                     <button
@@ -298,12 +298,12 @@ export const Layout = ({ children }: LayoutProps) => {
                                             setMenuPerfilAbierto(false);
                                             navigate('/perfil');
                                         }}
-                                        className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-background transition-colors text-left"
+                                        className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-background transition-colors text-left dark:hover:bg-slate-700"
                                     >
                                         <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                         </svg>
-                                        <span className="text-sm text-text">Mi Perfil</span>
+                                        <span className="text-sm text-text dark:text-slate-200">Mi Perfil</span>
                                     </button>
 
                                     <button
@@ -311,13 +311,13 @@ export const Layout = ({ children }: LayoutProps) => {
                                             setMenuPerfilAbierto(false);
                                             navigate('/configuracion');
                                         }}
-                                        className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-background transition-colors text-left"
+                                        className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-background transition-colors text-left dark:hover:bg-slate-700"
                                     >
                                         <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
-                                        <span className="text-sm text-text">Configuración</span>
+                                        <span className="text-sm text-text dark:text-slate-200">Configuración</span>
                                     </button>
 
                                     <div className="border-t border-border my-2"></div>
@@ -327,7 +327,7 @@ export const Layout = ({ children }: LayoutProps) => {
                                             setMenuPerfilAbierto(false);
                                             handleLogout();
                                         }}
-                                        className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-background transition-colors text-left"
+                                        className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-background transition-colors text-left dark:hover:bg-slate-700"
                                     >
                                         <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -341,7 +341,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 </header>
 
                 {/* Main Content Area */}
-                <main className="flex-1 overflow-auto">
+                <main className="flex-1 overflow-auto bg-background">
                     {children}
                 </main>
             </div>

@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -28,17 +29,17 @@ export default {
         success: '#22C55E',
         warning: '#F59E0B',
         error: '#DC2626',
-        // Neutros
+        // Neutros (responden al tema vía CSS variables)
         background: {
-          DEFAULT: '#F5F7FA',
-          white: '#FFFFFF',
+          DEFAULT: 'rgb(var(--app-bg) / <alpha-value>)',
+          white: 'rgb(var(--app-surface) / <alpha-value>)',
         },
         text: {
-          DEFAULT: '#1F2937',
-          secondary: '#6B7280',
+          DEFAULT: 'rgb(var(--app-text) / <alpha-value>)',
+          secondary: 'rgb(var(--app-text-muted) / <alpha-value>)',
         },
         border: {
-          DEFAULT: '#E5E7EB',
+          DEFAULT: 'rgb(var(--app-border) / <alpha-value>)',
         },
         // Sidebar
         sidebar: {
