@@ -3,8 +3,40 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color-scheme: light;
+    --app-bg: 244 246 248;
+    --app-surface: 255 255 255;
+    --app-surface-muted: 245 247 250;
+    --app-surface-subtle: 249 250 251;
+    --app-border: 226 232 240;
+    --app-border-strong: 203 213 225;
+    --app-text: 15 23 42;
+    --app-text-muted: 100 116 139;
+    --app-text-subtle: 148 163 184;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --app-bg: 15 23 42;
+    --app-surface: 30 41 59;
+    --app-surface-muted: 51 65 85;
+    --app-surface-subtle: 30 41 59;
+    --app-border: 71 85 105;
+    --app-border-strong: 100 116 139;
+    --app-text: 241 245 249;
+    --app-text-muted: 148 163 184;
+    --app-text-subtle: 100 116 139;
+  }
+
+  html,
+  body,
+  #root {
+    @apply min-h-screen;
+  }
+
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-[rgb(var(--app-bg))] text-[rgb(var(--app-text))] antialiased transition-colors duration-200;
   }
 }
 
@@ -24,4 +56,128 @@
   .card {
     @apply bg-white rounded-lg shadow-md p-6;
   }
+}
+
+/* Overrides globales para pantallas con clases Tailwind fijas */
+.dark .bg-white {
+  background-color: rgb(var(--app-surface)) !important;
+}
+
+.dark .bg-gray-50,
+.dark .bg-slate-50 {
+  background-color: rgb(var(--app-surface-muted) / 0.5) !important;
+}
+
+.dark .bg-gray-100,
+.dark .bg-slate-100 {
+  background-color: rgb(var(--app-surface-muted)) !important;
+}
+
+.dark .bg-gray-200 {
+  background-color: rgb(var(--app-border)) !important;
+}
+
+.dark .bg-\[\#F4F6F8\] {
+  background-color: rgb(var(--app-bg)) !important;
+}
+
+.dark .bg-\[\#F5F7FA\] {
+  background-color: rgb(var(--app-surface-muted)) !important;
+}
+
+.dark .bg-\[\#F9FAFB\] {
+  background-color: rgb(var(--app-surface-subtle)) !important;
+}
+
+.dark .text-gray-900,
+.dark .text-slate-900 {
+  color: rgb(var(--app-text)) !important;
+}
+
+.dark .text-gray-800,
+.dark .text-slate-800 {
+  color: rgb(226 232 240) !important;
+}
+
+.dark .text-gray-700,
+.dark .text-slate-700 {
+  color: rgb(203 213 225) !important;
+}
+
+.dark .text-gray-600,
+.dark .text-slate-600 {
+  color: rgb(var(--app-text-muted)) !important;
+}
+
+.dark .text-gray-500,
+.dark .text-slate-500 {
+  color: rgb(var(--app-text-muted)) !important;
+}
+
+.dark .text-gray-400,
+.dark .text-slate-400 {
+  color: rgb(var(--app-text-subtle)) !important;
+}
+
+.dark .text-\[\#6B7280\] {
+  color: rgb(var(--app-text-muted)) !important;
+}
+
+.dark .border-gray-200,
+.dark .border-slate-200,
+.dark .border-slate-100 {
+  border-color: rgb(var(--app-border)) !important;
+}
+
+.dark .border-gray-300,
+.dark .border-slate-300 {
+  border-color: rgb(var(--app-border-strong)) !important;
+}
+
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-slate-50:hover {
+  background-color: rgb(var(--app-surface-muted)) !important;
+}
+
+.dark .hover\:bg-slate-100:hover {
+  background-color: rgb(var(--app-surface-muted)) !important;
+}
+
+.dark .hover\:border-gray-300:hover {
+  border-color: rgb(var(--app-border-strong)) !important;
+}
+
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(var(--app-border)) !important;
+}
+
+.dark .shadow-sm,
+.dark .shadow-md,
+.dark .shadow-lg,
+.dark .shadow-xl,
+.dark .shadow-2xl {
+  --tw-shadow-color: rgb(0 0 0 / 0.35);
+}
+
+.dark input:not([type='checkbox']):not([type='radio']),
+.dark select,
+.dark textarea {
+  background-color: rgb(var(--app-surface));
+  border-color: rgb(var(--app-border-strong));
+  color: rgb(var(--app-text));
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgb(var(--app-text-subtle));
+}
+
+.dark table thead {
+  background-color: rgb(var(--app-surface-muted) / 0.6);
+}
+
+.dark .card {
+  background-color: rgb(var(--app-surface));
+  color: rgb(var(--app-text));
 }

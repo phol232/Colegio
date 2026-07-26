@@ -54,7 +54,7 @@ const CloseButton = ({ onClose }: { onClose: () => void }) => (
         type="button"
         onClick={onClose}
         aria-label="Cerrar"
-        className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-300"
+        className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-200"
     >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -107,29 +107,29 @@ export const Modal: React.FC<ModalProps> = ({
             <div
                 role="dialog"
                 aria-modal="true"
-                className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-800"
             >
                 <CloseButton onClose={onClose} />
                 <div className="px-6 pt-6 pb-4 pr-12">
                     <div className="flex items-start gap-4">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-700">
                             {iconMap[type]}
                         </div>
                         <div className="min-w-0 flex-1">
-                            <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-                            <p className="mt-2 text-sm leading-relaxed text-slate-600 whitespace-pre-line">
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
+                            <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-line">
                                 {message}
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/80 px-6 py-4 sm:flex-row sm:justify-end">
+                <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/80 px-6 py-4 sm:flex-row sm:justify-end dark:border-slate-700 dark:bg-slate-900/40">
                     {type === 'confirm' && (
                         <button
                             type="button"
                             onClick={onClose}
-                            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                         >
                             {cancelText}
                         </button>
