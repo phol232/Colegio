@@ -15,6 +15,8 @@ export interface MatriculaOptions {
     gradoId: number;
     nombre: string;
     capacidad: number;
+    matriculados?: number;
+    vacantes?: number;
   }>;
 }
 

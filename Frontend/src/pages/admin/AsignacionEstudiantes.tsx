@@ -28,6 +28,8 @@ interface Seccion {
     id: number;
     nombre: string;
     capacidad: number;
+    matriculados?: number;
+    vacantes?: number;
 }
 
 export const AsignacionEstudiantes = () => {
@@ -101,6 +103,20 @@ export const AsignacionEstudiantes = () => {
             return;
         }
 
+        const seccion = grados
+            .flatMap((g) => g.secciones ?? [])
+            .find((s) => Number(s.id) === seccionSeleccionada);
+        const capacidad = seccion?.capacidad ?? 0;
+        if (capacidad > 0 && estudiantesSeleccionados.length > capacidad) {
+            showToast(
+                `La sección solo admite ${capacidad} estudiantes. Seleccionaste ${estudiantesSeleccionados.length}.`,
+                'warning',
+                4000,
+                'Sin vacantes suficientes',
+            );
+            return;
+        }
+
         setGuardando(true);
         try {
             const response = await api.post(`/admin/secciones/${seccionSeleccionada}/asignar-estudiantes`, {
@@ -149,7 +165,13 @@ export const AsignacionEstudiantes = () => {
         : undefined;
 
     const seccionesDisponibles = gradoActual?.secciones ?? [];
-
+    const seccionActual = seccionSeleccionada != null
+        ? seccionesDisponibles.find((s) => Number(s.id) === seccionSeleccionada)
+        : undefined;
+    const vacantesSeccion = seccionActual
+        ? (seccionActual.vacantes ?? Math.max(0, seccionActual.capacidad - (seccionActual.matriculados ?? estudiantesAsignados.length)))
+        : 0;
+    const cupoMaximo = seccionActual?.capacidad ?? 0;
     const nivelGrado = gradoActual?.nivel ?? null;
 
     // Filtrar estudiantes: solo mostrar los que NO están asignados a ninguna sección
@@ -209,11 +231,22 @@ export const AsignacionEstudiantes = () => {
                   <SelectValue placeholder="Seleccionar sección" />
                 </SelectTrigger>
                 <SelectContent>
-                  {seccionesDisponibles.map((seccion) => (
-                    <SelectItem key={seccion.id} value={String(seccion.id)}>
-                      Sección {seccion.nombre}
-                    </SelectItem>
-                  ))}
+                  {seccionesDisponibles.map((seccion) => {
+                    const vacantes =
+                      seccion.vacantes ??
+                      Math.max(0, seccion.capacidad - (seccion.matriculados ?? 0));
+                    const llena = vacantes === 0 && (seccion.matriculados ?? 0) >= seccion.capacidad;
+                    return (
+                      <SelectItem
+                        key={seccion.id}
+                        value={String(seccion.id)}
+                        disabled={llena && estudiantesAsignados.length === 0}
+                      >
+                        Sección {seccion.nombre} — {vacantes} vacantes
+                        {llena ? ' (llena)' : ''}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               {gradoSeleccionado != null && seccionesDisponibles.length === 0 && (
@@ -225,13 +258,29 @@ export const AsignacionEstudiantes = () => {
           </div>
 
           {seccionSeleccionada && (
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <button
                 onClick={abrirModalAsignacion}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 {estudiantesAsignados.length > 0 ? '✏️ Editar Estudiantes' : '+ Asignar Estudiantes'}
               </button>
+              {seccionActual && (
+                <span className="text-sm text-gray-600">
+                  Capacidad {cupoMaximo} ·{' '}
+                  <span
+                    className={
+                      vacantesSeccion === 0
+                        ? 'font-medium text-red-600'
+                        : vacantesSeccion <= 3
+                          ? 'font-medium text-amber-600'
+                          : 'font-medium text-emerald-600'
+                    }
+                  >
+                    {vacantesSeccion} vacantes
+                  </span>
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -311,8 +360,14 @@ export const AsignacionEstudiantes = () => {
                 {/* Lista de Estudiantes */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Selecciona los estudiantes ({estudiantesSeleccionados.length} seleccionados)
+                    Selecciona los estudiantes ({estudiantesSeleccionados.length} seleccionados
+                    {cupoMaximo > 0 ? ` · máx. ${cupoMaximo}` : ''})
                   </label>
+                  {estudiantesSeleccionados.length > cupoMaximo && cupoMaximo > 0 && (
+                    <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                      Superaste la capacidad de la sección ({cupoMaximo}). Desmarca estudiantes para continuar.
+                    </div>
+                  )}
                   <div className="space-y-2 max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4">
                     {estudiantesDisponibles.length === 0 ? (
                       <div className="text-center py-8 text-gray-500">
@@ -399,7 +454,11 @@ export const AsignacionEstudiantes = () => {
                   <button
                     type="submit"
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    disabled={guardando || (!modoEdicion && estudiantesSeleccionados.length === 0)}
+                    disabled={
+                      guardando ||
+                      (!modoEdicion && estudiantesSeleccionados.length === 0) ||
+                      (cupoMaximo > 0 && estudiantesSeleccionados.length > cupoMaximo)
+                    }
                   >
                     {guardando
                       ? 'Guardando...'

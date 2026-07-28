@@ -76,6 +76,8 @@ function mapMatricula(
           gradoId: Number(entity.seccion.gradoId),
           nombre: entity.seccion.nombre,
           capacidad: entity.seccion.capacidad,
+          matriculados: 0,
+          vacantes: entity.seccion.capacidad,
         }
       : extras?.seccion ?? null,
     ...extras,
@@ -630,6 +632,7 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
     await this.unitOfWork.transaction(async (manager) => {
       const seccion = await manager.findOneOrFail(SeccionEntity, {
         where: { id: seccionId },
+        lock: { mode: 'pessimistic_write' },
       });
       const periodo = await this.getPeriodoActivo();
       if (!periodo) {
@@ -650,7 +653,9 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
       }
 
       if (uniqueIds.length > seccion.capacidad) {
-        throw new BadRequestException('La sección no tiene vacantes disponibles');
+        throw new BadRequestException(
+          `Se intentan asignar ${uniqueIds.length} estudiantes pero la sección ${seccion.nombre} solo tiene capacidad para ${seccion.capacidad}`,
+        );
       }
 
       const actuales = await manager.find(MatriculaEntity, {
@@ -661,6 +666,7 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
         },
       });
 
+      // Retiros primero: liberan cupos antes de las nuevas altas.
       const desiredSet = new Set(uniqueIds);
       for (const matricula of actuales) {
         if (!desiredSet.has(Number(matricula.estudianteId))) {
@@ -1013,38 +1019,60 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
     return true;
   }
 
+  private async contarActivasPorSeccion(
+    manager: EntityManager,
+    seccionIds: number[],
+    periodoId: number,
+  ): Promise<Map<number, number>> {
+    const result = new Map<number, number>();
+    for (const id of seccionIds) {
+      result.set(id, 0);
+    }
+    if (seccionIds.length === 0) return result;
+
+    const rows = await manager
+      .createQueryBuilder(MatriculaEntity, 'm')
+      .select('m.seccion_id', 'seccionId')
+      .addSelect('COUNT(*)', 'total')
+      .where('m.seccion_id IN (:...seccionIds)', { seccionIds })
+      .andWhere('m.periodo_academico_id = :periodoId', { periodoId })
+      .andWhere("m.estado = 'activa'")
+      .groupBy('m.seccion_id')
+      .getRawMany<{ seccionId: string; total: string }>();
+
+    for (const row of rows) {
+      result.set(Number(row.seccionId), Number(row.total));
+    }
+    return result;
+  }
+
   private async getSeccionesConCupos(gradoId: number, periodoId?: number) {
     const secciones = await this.seccionRepo.find({
       where: { gradoId },
       order: { nombre: 'ASC' },
     });
+    const seccionIds = secciones.map((s) => Number(s.id));
+    const ocupacion =
+      periodoId != null
+        ? await this.contarActivasPorSeccion(
+            this.matriculaRepo.manager,
+            seccionIds,
+            periodoId,
+          )
+        : new Map<number, number>();
 
-    const result: Array<{
-      id: number;
-      gradoId: number;
-      nombre: string;
-      capacidad: number;
-      matriculados: number;
-    }> = [];
-    for (const seccion of secciones) {
-      const matriculados = periodoId
-        ? await this.matriculaRepo.count({
-            where: {
-              seccionId: seccion.id,
-              periodoAcademicoId: periodoId,
-              estado: 'activa',
-            },
-          })
-        : 0;
-      result.push({
+    return secciones.map((seccion) => {
+      const capacidad = seccion.capacidad;
+      const matriculados = ocupacion.get(Number(seccion.id)) ?? 0;
+      return {
         id: Number(seccion.id),
         gradoId: Number(seccion.gradoId),
         nombre: seccion.nombre,
-        capacidad: seccion.capacidad,
+        capacidad,
         matriculados,
-      });
-    }
-    return result;
+        vacantes: Math.max(0, capacidad - matriculados),
+      };
+    });
   }
 
   private async validarCupo(
@@ -1055,6 +1083,7 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
   ) {
     const seccion = await manager.findOneOrFail(SeccionEntity, {
       where: { id: seccionId },
+      lock: { mode: 'pessimistic_write' },
     });
     const qb = manager
       .createQueryBuilder(MatriculaEntity, 'm')
@@ -1066,7 +1095,9 @@ export class TypeOrmMatriculaRepository implements IMatriculaRepository {
     }
     const count = await qb.getCount();
     if (count >= seccion.capacidad) {
-      throw new BadRequestException('La sección no tiene vacantes disponibles');
+      throw new BadRequestException(
+        `La sección ${seccion.nombre} no tiene vacantes disponibles (0 de ${seccion.capacidad})`,
+      );
     }
   }
 }

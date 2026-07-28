@@ -75,6 +75,35 @@ components:
         anio_academico: { type: integer }
         periodo_evaluacion: { type: string, enum: [bimestral, trimestral, semestral] }
         modo_mantenimiento: { type: boolean }
+    SeccionConCupos:
+      type: object
+      required: [id, grado_id, nombre, capacidad, matriculados, vacantes]
+      properties:
+        id: { type: integer }
+        grado_id: { type: integer }
+        nombre: { type: string }
+        capacidad: { type: integer }
+        matriculados:
+          type: integer
+          description: Matrículas activas en el período académico vigente
+        vacantes:
+          type: integer
+          description: capacidad - matriculados (nunca negativo)
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    SeccionInfoDashboard:
+      type: object
+      required: [id, nombre, nivel, grado_numero, estudiantes_actual, capacidad, vacantes, porcentaje_ocupacion]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        nivel: { type: string }
+        grado_numero: { type: integer }
+        estudiantes_actual: { type: integer }
+        capacidad: { type: integer }
+        vacantes: { type: integer }
+        porcentaje_ocupacion: { type: number }
+        docente_tutor: { type: string }
 
 paths:
   /auth/register:
@@ -190,7 +219,9 @@ paths:
       x-roles: [estudiante]
       responses:
         '200':
-          description: Grado propuesto bloqueado y requisitos pendientes
+          description: |
+            Grado propuesto bloqueado, requisitos pendientes y seccionesDisponibles
+            con capacidad, matriculados y vacantes del período.
 
   /matricula/solicitudes:
     post:
@@ -782,7 +813,18 @@ paths:
       tags: [admin]
       security: [{ bearerAuth: [] }]
       x-roles: [admin]
-      responses: { '200': { description: Info secciones } }
+      responses:
+        '200':
+          description: Ocupación por sección (matrículas activas del período)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/SeccionInfoDashboard' }
 
   /admin/configuracion:
     get:
@@ -831,19 +873,50 @@ paths:
       tags: [admin]
       security: [{ bearerAuth: [] }]
       x-roles: [admin]
-      responses: { '200': { description: listar_secciones_grado } }
+      responses:
+        '200':
+          description: listar_secciones_grado con matriculados y vacantes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/SeccionConCupos' }
     post:
       tags: [admin]
       security: [{ bearerAuth: [] }]
       x-roles: [admin]
-      responses: { '201': { description: crear_seccion } }
+      responses:
+        '201':
+          description: crear_seccion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/SeccionConCupos' }
 
   /admin/secciones/{id}:
     put:
       tags: [admin]
       security: [{ bearerAuth: [] }]
       x-roles: [admin]
-      responses: { '200': { description: actualizar_seccion } }
+      responses:
+        '200':
+          description: actualizar_seccion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/SeccionConCupos' }
     delete:
       tags: [admin]
       security: [{ bearerAuth: [] }]
