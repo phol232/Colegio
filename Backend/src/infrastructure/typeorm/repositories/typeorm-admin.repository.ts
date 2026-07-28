@@ -5,6 +5,8 @@ import {
   DashboardStats,
   IAdminRepository,
   PeriodoAcademicoConfig,
+  SeccionConCupos,
+  SeccionInfoDashboard,
   SystemConfig,
   UpdateSystemConfigInput,
 } from '@/domain/ports/admin.repository.port';
@@ -14,6 +16,7 @@ import { ConfiguracionSistemaEntity } from '../entities/oltp/configuracion-siste
 import { CursoEntity } from '../entities/oltp/curso.entity';
 import { GradoEntity, NivelEducativo } from '../entities/oltp/grado.entity';
 import { CursoCatalogoEntity, NivelCatalogo } from '../entities/oltp/curso-catalogo.entity';
+import { MatriculaEntity } from '../entities/oltp/matricula.entity';
 import { SeccionEntity } from '../entities/oltp/seccion.entity';
 import { UsuarioEntity } from '../entities/oltp/usuario.entity';
 import { OLTP_CONNECTION } from './typeorm-unit-of-work';
@@ -141,25 +144,84 @@ export class TypeOrmAdminRepository implements IAdminRepository {
     };
   }
 
-  async getSeccionesInfo(): Promise<Record<string, unknown>[]> {
-    return this.seccionRepo.manager.query(
+  private async resolvePeriodoActivoId(): Promise<number | null> {
+    const configs = await this.configRepo.find({ take: 1, order: { id: 'ASC' } });
+    const config = configs[0];
+    if (!config) return null;
+    const periodo = await this.resolvePeriodoActivo(config);
+    return periodo?.id ?? null;
+  }
+
+  async getOcupacionSecciones(
+    seccionIds: number[],
+  ): Promise<Record<number, number>> {
+    const result: Record<number, number> = {};
+    for (const id of seccionIds) {
+      result[id] = 0;
+    }
+    if (seccionIds.length === 0) return result;
+
+    const periodoId = await this.resolvePeriodoActivoId();
+    if (!periodoId) return result;
+
+    const rows = await this.seccionRepo.manager
+      .createQueryBuilder(MatriculaEntity, 'm')
+      .select('m.seccion_id', 'seccionId')
+      .addSelect('COUNT(*)', 'total')
+      .where('m.seccion_id IN (:...seccionIds)', { seccionIds })
+      .andWhere('m.periodo_academico_id = :periodoId', { periodoId })
+      .andWhere("m.estado = 'activa'")
+      .groupBy('m.seccion_id')
+      .getRawMany<{ seccionId: string; total: string }>();
+
+    for (const row of rows) {
+      result[Number(row.seccionId)] = Number(row.total);
+    }
+    return result;
+  }
+
+  private mapSeccionConCupos(
+    seccion: SeccionEntity,
+    matriculados: number,
+  ): SeccionConCupos {
+    const capacidad = seccion.capacidad;
+    return {
+      id: Number(seccion.id),
+      gradoId: Number(seccion.gradoId),
+      nombre: seccion.nombre,
+      capacidad,
+      matriculados,
+      vacantes: Math.max(0, capacidad - matriculados),
+      createdAt: seccion.createdAt,
+      updatedAt: seccion.updatedAt,
+    };
+  }
+
+  async getSeccionesInfo(): Promise<SeccionInfoDashboard[]> {
+    const periodoId = await this.resolvePeriodoActivoId();
+    const rows = await this.seccionRepo.manager.query(
       `SELECT
          s.id,
          CONCAT(g.numero, 'ro ', s.nombre) AS nombre,
          g.nivel,
          g.numero AS grado_numero,
-         COALESCE(es.total_estudiantes, 0) AS estudiantes_actual,
+         COALESCE(ma.total_matriculados, 0)::int AS estudiantes_actual,
          s.capacidad,
-         ROUND((COALESCE(es.total_estudiantes, 0) * 100.0 / NULLIF(s.capacidad, 0)), 2) AS porcentaje_ocupacion,
+         GREATEST(s.capacidad - COALESCE(ma.total_matriculados, 0), 0)::int AS vacantes,
+         ROUND(
+           (COALESCE(ma.total_matriculados, 0) * 100.0 / NULLIF(s.capacidad, 0)),
+           2
+         ) AS porcentaje_ocupacion,
          COALESCE(d.name, 'Sin asignar') AS docente_tutor
        FROM secciones s
        JOIN grados g ON s.grado_id = g.id
        LEFT JOIN (
-         SELECT c.seccion_id, COUNT(DISTINCT ec.estudiante_id) AS total_estudiantes
-         FROM cursos c
-         LEFT JOIN estudiantes_cursos ec ON ec.curso_id = c.id
-         GROUP BY c.seccion_id
-       ) es ON s.id = es.seccion_id
+         SELECT m.seccion_id, COUNT(*) AS total_matriculados
+         FROM matriculas m
+         WHERE m.estado = 'activa'
+           AND ($1::bigint IS NULL OR m.periodo_academico_id = $1)
+         GROUP BY m.seccion_id
+       ) ma ON s.id = ma.seccion_id
        LEFT JOIN LATERAL (
          SELECT u.name
          FROM cursos c
@@ -168,7 +230,9 @@ export class TypeOrmAdminRepository implements IAdminRepository {
          LIMIT 1
        ) d ON TRUE
        ORDER BY g.nivel, g.numero, s.nombre`,
+      [periodoId],
     );
+    return rows as SeccionInfoDashboard[];
   }
 
   async getConfiguracion(): Promise<SystemConfig | null> {
@@ -288,34 +352,52 @@ export class TypeOrmAdminRepository implements IAdminRepository {
     await this.gradoRepo.delete(id);
   }
 
-  async listSeccionesByGrado(gradoId: number): Promise<Record<string, unknown>[]> {
-    return this.seccionRepo.find({
+  async listSeccionesByGrado(gradoId: number): Promise<SeccionConCupos[]> {
+    const secciones = await this.seccionRepo.find({
       where: { gradoId },
       order: { nombre: 'ASC' },
-    }) as unknown as Record<string, unknown>[];
+    });
+    const ocupacion = await this.getOcupacionSecciones(
+      secciones.map((s) => Number(s.id)),
+    );
+    return secciones.map((s) =>
+      this.mapSeccionConCupos(s, ocupacion[Number(s.id)] ?? 0),
+    );
+  }
+
+  async listAllSeccionesConCupos(): Promise<SeccionConCupos[]> {
+    const secciones = await this.seccionRepo.find({
+      order: { gradoId: 'ASC', nombre: 'ASC' },
+    });
+    const ocupacion = await this.getOcupacionSecciones(
+      secciones.map((s) => Number(s.id)),
+    );
+    return secciones.map((s) =>
+      this.mapSeccionConCupos(s, ocupacion[Number(s.id)] ?? 0),
+    );
   }
 
   async createSeccion(
     gradoId: number,
     nombre: string,
     capacidad: number,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<SeccionConCupos> {
     const saved = await this.seccionRepo.save({ gradoId, nombre, capacidad });
-    return saved as unknown as Record<string, unknown>;
+    return this.mapSeccionConCupos(saved, 0);
   }
 
   async updateSeccion(
     id: number,
     input: { nombre?: string; capacidad?: number },
-  ): Promise<Record<string, unknown>> {
+  ): Promise<SeccionConCupos> {
     await this.seccionRepo.update(id, {
       ...(input.nombre !== undefined ? { nombre: input.nombre } : {}),
       ...(input.capacidad !== undefined ? { capacidad: input.capacidad } : {}),
       updatedAt: new Date(),
     });
-    return this.seccionRepo.findOneOrFail({
-      where: { id },
-    }) as unknown as Record<string, unknown>;
+    const seccion = await this.seccionRepo.findOneOrFail({ where: { id } });
+    const ocupacion = await this.getOcupacionSecciones([id]);
+    return this.mapSeccionConCupos(seccion, ocupacion[id] ?? 0);
   }
 
   async deleteSeccion(id: number): Promise<void> {

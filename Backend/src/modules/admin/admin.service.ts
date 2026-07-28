@@ -103,6 +103,28 @@ function mapEntity(row: Record<string, unknown>) {
   return mapped;
 }
 
+function mapSeccionConCupos(seccion: {
+  id: number;
+  gradoId: number;
+  nombre: string;
+  capacidad: number;
+  matriculados: number;
+  vacantes: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}) {
+  return {
+    id: seccion.id,
+    grado_id: seccion.gradoId,
+    nombre: seccion.nombre,
+    capacidad: seccion.capacidad,
+    matriculados: seccion.matriculados,
+    vacantes: seccion.vacantes,
+    ...(seccion.createdAt != null ? { created_at: seccion.createdAt } : {}),
+    ...(seccion.updatedAt != null ? { updated_at: seccion.updatedAt } : {}),
+  };
+}
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -177,18 +199,21 @@ export class AdminService {
   }
 
   async listarGrados() {
-    const grados = await this.adminRepo.listGrados();
-    const data = await Promise.all(
-      grados.map(async (grado) => {
-        const secciones = await this.adminRepo.listSeccionesByGrado(
-          Number(grado.id),
-        );
-        return {
-          ...mapEntity(grado),
-          secciones: secciones.map(mapEntity),
-        };
-      }),
-    );
+    const [grados, secciones] = await Promise.all([
+      this.adminRepo.listGrados(),
+      this.adminRepo.listAllSeccionesConCupos(),
+    ]);
+    const seccionesPorGrado = new Map<number, ReturnType<typeof mapSeccionConCupos>[]>();
+    for (const seccion of secciones) {
+      const gradoId = seccion.gradoId;
+      const list = seccionesPorGrado.get(gradoId) ?? [];
+      list.push(mapSeccionConCupos(seccion));
+      seccionesPorGrado.set(gradoId, list);
+    }
+    const data = grados.map((grado) => ({
+      ...mapEntity(grado),
+      secciones: seccionesPorGrado.get(Number(grado.id)) ?? [],
+    }));
     return { success: true, data };
   }
 
@@ -225,7 +250,7 @@ export class AdminService {
 
   async listarSeccionesGrado(gradoId: number) {
     const secciones = await this.adminRepo.listSeccionesByGrado(gradoId);
-    return { success: true, data: secciones.map(mapEntity) };
+    return { success: true, data: secciones.map(mapSeccionConCupos) };
   }
 
   async crearSeccion(gradoId: number, dto: CrearSeccionDto) {
@@ -237,7 +262,7 @@ export class AdminService {
     return {
       success: true,
       message: 'Sección creada exitosamente',
-      data: mapEntity(seccion),
+      data: mapSeccionConCupos(seccion),
     };
   }
 
@@ -249,7 +274,7 @@ export class AdminService {
     return {
       success: true,
       message: 'Sección actualizada exitosamente',
-      data: mapEntity(seccion),
+      data: mapSeccionConCupos(seccion),
     };
   }
 
