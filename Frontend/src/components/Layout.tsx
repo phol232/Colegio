@@ -220,7 +220,7 @@ export const Layout = ({ children }: LayoutProps) => {
                                 key={item.path}
                                 to={item.path}
                                 className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive
-                                    ? 'bg-white text-black font-medium'
+                                    ? 'bg-white/15 text-white font-medium ring-1 ring-white/20'
                                     : 'text-white hover:bg-sidebar-hover'
                                     }`}
                             >

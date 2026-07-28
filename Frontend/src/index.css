@@ -123,6 +123,72 @@
   color: rgb(var(--app-text-muted)) !important;
 }
 
+.dark .text-\[\#0E2B5C\] {
+  color: rgb(191 219 254) !important;
+}
+
+.dark .text-\[\#1F2937\] {
+  color: rgb(var(--app-text)) !important;
+}
+
+.dark .text-secondary {
+  color: rgb(191 219 254) !important;
+}
+
+.dark .border-\[\#E5E7EB\] {
+  border-color: rgb(var(--app-border)) !important;
+}
+
+.dark .divide-\[\#E5E7EB\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(var(--app-border)) !important;
+}
+
+.dark .hover\:bg-\[\#F9FAFB\]:hover {
+  background-color: rgb(var(--app-surface-muted)) !important;
+}
+
+.dark .bg-slate-50\/50 {
+  background-color: rgb(var(--app-surface-muted) / 0.5) !important;
+}
+
+.dark .bg-emerald-50 { background-color: rgb(6 78 59 / 0.35) !important; }
+.dark .bg-emerald-100 { background-color: rgb(6 78 59 / 0.45) !important; }
+.dark .text-emerald-600, .dark .text-emerald-700, .dark .text-emerald-800 { color: rgb(110 231 183) !important; }
+.dark .border-emerald-200 { border-color: rgb(6 95 70 / 0.5) !important; }
+
+.dark .bg-sky-50 { background-color: rgb(12 74 110 / 0.35) !important; }
+.dark .bg-sky-100 { background-color: rgb(12 74 110 / 0.45) !important; }
+.dark .text-sky-600, .dark .text-sky-700, .dark .text-sky-800 { color: rgb(125 211 252) !important; }
+.dark .border-sky-200 { border-color: rgb(3 105 161 / 0.5) !important; }
+
+.dark .bg-amber-50 { background-color: rgb(120 53 15 / 0.35) !important; }
+.dark .bg-amber-100 { background-color: rgb(120 53 15 / 0.45) !important; }
+.dark .text-amber-600, .dark .text-amber-700, .dark .text-amber-800 { color: rgb(252 211 77) !important; }
+.dark .border-amber-200 { border-color: rgb(146 64 14 / 0.5) !important; }
+
+.dark .bg-red-50 { background-color: rgb(127 29 29 / 0.35) !important; }
+.dark .bg-red-100 { background-color: rgb(127 29 29 / 0.45) !important; }
+.dark .text-red-600, .dark .text-red-700, .dark .text-red-800 { color: rgb(252 165 165) !important; }
+.dark .border-red-200 { border-color: rgb(153 27 27 / 0.5) !important; }
+
+.dark .bg-violet-100 { background-color: rgb(76 29 149 / 0.45) !important; }
+.dark .text-violet-600 { color: rgb(196 181 253) !important; }
+
+.dark .bg-green-100 { background-color: rgb(20 83 45 / 0.45) !important; }
+.dark .text-green-800 { color: rgb(134 239 172) !important; }
+
+.dark .bg-blue-50 { background-color: rgb(30 58 138 / 0.35) !important; }
+.dark .text-blue-800 { color: rgb(147 197 253) !important; }
+.dark .border-blue-200 { border-color: rgb(30 64 175 / 0.5) !important; }
+
+.dark .hover\:bg-red-50:hover {
+  background-color: rgb(127 29 29 / 0.35) !important;
+}
+
+.dark .border-red-200 {
+  border-color: rgb(153 27 27 / 0.5) !important;
+}
+
 .dark .border-gray-200,
 .dark .border-slate-200,
 .dark .border-slate-100 {
