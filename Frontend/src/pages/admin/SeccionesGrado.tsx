@@ -17,6 +17,8 @@ interface Seccion {
     grado_id: number;
     nombre: string;
     capacidad: number;
+    matriculados: number;
+    vacantes: number;
 }
 
 const SeccionIcon = () => (
@@ -160,6 +162,8 @@ export const SeccionesGrado = () => {
     };
 
     const capacidadTotal = secciones.reduce((sum, s) => sum + s.capacidad, 0);
+    const vacantesTotal = secciones.reduce((sum, s) => sum + (s.vacantes ?? 0), 0);
+    const matriculadosTotal = secciones.reduce((sum, s) => sum + (s.matriculados ?? 0), 0);
 
     if (loading) {
         return (
@@ -221,7 +225,8 @@ export const SeccionesGrado = () => {
                             </span>
                         </div>
                         <p className="mt-2 text-sm text-slate-500 md:text-base">
-                            {secciones.length} {secciones.length === 1 ? 'sección' : 'secciones'} · {capacidadTotal} cupos en total
+                            {secciones.length} {secciones.length === 1 ? 'sección' : 'secciones'} ·{' '}
+                            {matriculadosTotal} ocupados · {vacantesTotal} vacantes de {capacidadTotal}
                         </p>
                     </div>
                     <button type="button" onClick={abrirNuevaSeccion} className={`${btnPrimary} gap-2 px-5`}>
@@ -246,7 +251,22 @@ export const SeccionesGrado = () => {
                                     <div className="min-w-0 flex-1">
                                         <h3 className="text-lg font-semibold text-slate-900">Sección {seccion.nombre}</h3>
                                         <p className="mt-1 text-sm text-slate-500">
-                                            Capacidad: <strong className="font-medium text-slate-700">{seccion.capacidad}</strong> estudiantes
+                                            <strong className="font-medium text-slate-700">
+                                                {seccion.matriculados ?? 0}
+                                            </strong>{' '}
+                                            ocupados de {seccion.capacidad}
+                                            {' · '}
+                                            <span
+                                                className={
+                                                    (seccion.vacantes ?? 0) === 0
+                                                        ? 'font-medium text-red-600'
+                                                        : (seccion.vacantes ?? 0) <= 3
+                                                          ? 'font-medium text-amber-600'
+                                                          : 'font-medium text-emerald-600'
+                                                }
+                                            >
+                                                {seccion.vacantes ?? 0} vacantes
+                                            </span>
                                         </p>
                                     </div>
                                 </div>

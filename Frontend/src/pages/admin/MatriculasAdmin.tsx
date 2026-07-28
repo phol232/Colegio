@@ -48,6 +48,8 @@ interface SeccionOption {
   id: number;
   nombre: string;
   capacidad: number;
+  matriculados: number;
+  vacantes: number;
 }
 
 interface GradoOption {
@@ -64,10 +66,18 @@ const filtrosEstado = [
 ] as const;
 
 function normalizarSeccion(raw: Record<string, unknown>): SeccionOption {
+  const capacidad = Number(raw.capacidad ?? 0);
+  const matriculados = Number(raw.matriculados ?? 0);
+  const vacantes =
+    raw.vacantes != null
+      ? Number(raw.vacantes)
+      : Math.max(0, capacidad - matriculados);
   return {
     id: Number(raw.id),
     nombre: String(raw.nombre ?? ''),
-    capacidad: Number(raw.capacidad ?? 0),
+    capacidad,
+    matriculados,
+    vacantes,
   };
 }
 
@@ -519,25 +529,44 @@ export const MatriculasAdmin = () => {
                   <div className="grid gap-2">
                     {seccionesDisponibles.map((seccion) => {
                       const seleccionadaSeccion = seccionAprobar === seccion.id;
+                      const sinVacantes = seccion.vacantes <= 0;
                       return (
                         <button
                           key={seccion.id}
                           type="button"
-                          onClick={() => setSeccionAprobar(seccion.id)}
+                          disabled={sinVacantes}
+                          onClick={() => {
+                            if (!sinVacantes) setSeccionAprobar(seccion.id);
+                          }}
                           className={cn(
                             'flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left transition-all',
-                            seleccionadaSeccion
-                              ? 'border-sidebar-bg bg-blue-50 ring-1 ring-sidebar-bg'
-                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50',
+                            sinVacantes
+                              ? 'cursor-not-allowed border-slate-100 bg-slate-50 opacity-60'
+                              : seleccionadaSeccion
+                                ? 'border-sidebar-bg bg-blue-50 ring-1 ring-sidebar-bg'
+                                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50',
                           )}
                         >
                           <div>
                             <p className="font-medium text-slate-900">Sección {seccion.nombre}</p>
                             <p className="text-xs text-slate-500">
-                              Capacidad: {seccion.capacidad} estudiantes
+                              {seccion.matriculados} ocupados de {seccion.capacidad}
+                              {' · '}
+                              <span
+                                className={
+                                  sinVacantes
+                                    ? 'font-medium text-red-600'
+                                    : seccion.vacantes <= 3
+                                      ? 'font-medium text-amber-600'
+                                      : 'font-medium text-emerald-600'
+                                }
+                              >
+                                {seccion.vacantes} vacantes
+                                {sinVacantes ? ' (llena)' : ''}
+                              </span>
                             </p>
                           </div>
-                          {seleccionadaSeccion && (
+                          {seleccionadaSeccion && !sinVacantes && (
                             <Check className="h-5 w-5 shrink-0 text-sidebar-bg" />
                           )}
                         </button>

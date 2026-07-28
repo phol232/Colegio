@@ -24,6 +24,7 @@ interface SeccionInfo {
     grado_numero: number;
     estudiantes_actual: number;
     capacidad: number;
+    vacantes: number;
     porcentaje_ocupacion: number;
     docente_tutor: string;
 }
@@ -243,6 +244,7 @@ export const AdminDashboard = () => {
                                             <th className="px-4 py-3 text-left text-xs font-semibold text-[#0E2B5C]">Nivel</th>
                                             <th className="px-4 py-3 text-center text-xs font-semibold text-[#0E2B5C]">Estudiantes</th>
                                             <th className="px-4 py-3 text-center text-xs font-semibold text-[#0E2B5C]">Capacidad</th>
+                                            <th className="px-4 py-3 text-center text-xs font-semibold text-[#0E2B5C]">Vacantes</th>
                                             <th className="px-4 py-3 text-center text-xs font-semibold text-[#0E2B5C]">Ocupación</th>
                                         </tr>
                                     </thead>
@@ -275,6 +277,19 @@ export const AdminDashboard = () => {
                                                     </td>
                                                     <td className="px-4 py-3 text-center text-sm text-[#6B7280]">
                                                         {seccion.capacidad}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center text-sm font-medium">
+                                                        <span
+                                                            className={
+                                                                Number(seccion.vacantes) === 0
+                                                                    ? 'text-red-600'
+                                                                    : Number(seccion.vacantes) <= 3
+                                                                      ? 'text-amber-600'
+                                                                      : 'text-emerald-600'
+                                                            }
+                                                        >
+                                                            {seccion.vacantes ?? Math.max(0, seccion.capacidad - seccion.estudiantes_actual)}
+                                                        </span>
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
                                                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${colorOcupacion}`}>

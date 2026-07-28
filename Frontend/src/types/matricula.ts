@@ -18,7 +18,8 @@ export interface SeccionMatricula {
   gradoId: number;
   nombre: string;
   capacidad: number;
-  matriculados?: number;
+  matriculados: number;
+  vacantes: number;
 }
 
 export interface MatriculaRecord {

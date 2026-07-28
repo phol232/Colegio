@@ -17,7 +17,13 @@ interface Grado {
     nivel: string;
     numero: number;
     nombre: string;
-    secciones?: { id: number; nombre: string; capacidad: number }[];
+    secciones?: {
+        id: number;
+        nombre: string;
+        capacidad: number;
+        matriculados?: number;
+        vacantes?: number;
+    }[];
 }
 
 const GradoIcon = () => (
@@ -128,8 +134,8 @@ export const GradosYSecciones = () => {
     };
 
     const totalSecciones = (grado: Grado) => grado.secciones?.length ?? 0;
-    const capacidadTotal = (grado: Grado) =>
-        grado.secciones?.reduce((sum, s) => sum + s.capacidad, 0) ?? 0;
+    const vacantesTotal = (grado: Grado) =>
+        grado.secciones?.reduce((sum, s) => sum + (s.vacantes ?? Math.max(0, s.capacidad - (s.matriculados ?? 0))), 0) ?? 0;
 
     if (loading) {
         return (
@@ -193,8 +199,8 @@ export const GradosYSecciones = () => {
                                     <div className="flex items-center gap-1.5 text-sm text-slate-600">
                                         <UsersIcon />
                                         <span>
-                                            <strong className="font-semibold text-slate-900">{capacidadTotal(grado)}</strong>{' '}
-                                            cupos
+                                            <strong className="font-semibold text-slate-900">{vacantesTotal(grado)}</strong>{' '}
+                                            vacantes
                                         </span>
                                     </div>
                                 </div>
