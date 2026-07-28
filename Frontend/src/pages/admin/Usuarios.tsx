@@ -28,21 +28,20 @@ const roleLabel: Record<string, string> = {
     padre: 'Padre',
 };
 
-const roleStyle: Record<string, { bg: string; text: string }> = {
-    admin: { bg: '#E8EEF7', text: '#0E2B5C' },
-    docente: { bg: '#E6F4FB', text: '#17A2E5' },
-    estudiante: { bg: '#E8F5E9', text: '#2E7D32' },
-    padre: { bg: '#FFF3E0', text: '#E65100' },
+const roleAvatarClass: Record<string, string> = {
+    admin: 'bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-300',
+    docente: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
+    estudiante: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300',
+    padre: 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300',
 };
 
 const UsuarioAvatar = ({ name, role }: { name: string; role: string }) => {
-    const style = roleStyle[role] ?? { bg: '#F1F5F9', text: '#475569' };
+    const avatarClass = roleAvatarClass[role] ?? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
     const initial = name.trim().charAt(0).toUpperCase() || '?';
 
     return (
         <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold"
-            style={{ backgroundColor: style.bg, color: style.text }}
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold ${avatarClass}`}
         >
             {initial}
         </div>
@@ -205,10 +204,10 @@ export const Usuarios = () => {
             <div className="p-6 md:p-8">
                 <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl dark:text-slate-100">
                             Usuarios
                         </h1>
-                        <p className="mt-1 text-sm text-slate-500 md:text-base">
+                        <p className="mt-1 text-sm text-slate-500 md:text-base dark:text-slate-400">
                             Crear, bloquear o eliminar cuentas del sistema
                         </p>
                     </div>
@@ -229,7 +228,7 @@ export const Usuarios = () => {
                             className={
                                 filtroRol === filtro.id
                                     ? `${btnPrimarySm} !px-4`
-                                    : 'inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50'
+                                    : 'inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
                             }
                         >
                             {filtro.label}
@@ -242,8 +241,8 @@ export const Usuarios = () => {
                         {usuarios.map((usuario) => (
                             <article
                                 key={usuario.id}
-                                className={`flex flex-col rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md ${
-                                    usuario.activo ? 'border-slate-200' : 'border-red-200 opacity-90'
+                                className={`flex flex-col rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md dark:bg-slate-800 dark:shadow-none ${
+                                    usuario.activo ? 'border-slate-200 dark:border-slate-700' : 'border-red-200 opacity-90 dark:border-red-800'
                                 }`}
                             >
                                 <div className="p-5">
@@ -251,27 +250,27 @@ export const Usuarios = () => {
                                         <UsuarioAvatar name={usuario.name} role={usuario.role} />
                                         <div className="min-w-0 flex-1">
                                             <div className="flex flex-wrap items-center gap-2">
-                                                <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                                                <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
                                                     {roleLabel[usuario.role] ?? usuario.role}
                                                 </span>
                                                 <span
                                                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                                                         usuario.activo
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-red-100 text-red-800'
+                                                            ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
+                                                            : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
                                                     }`}
                                                 >
                                                     {usuario.activo ? 'Activo' : 'Bloqueado'}
                                                 </span>
                                             </div>
-                                            <h3 className="mt-2 truncate text-lg font-semibold text-slate-900">
+                                            <h3 className="mt-2 truncate text-lg font-semibold text-slate-900 dark:text-slate-100">
                                                 {usuario.name}
                                             </h3>
                                             <p className="mt-1 truncate text-sm text-slate-500">{usuario.email}</p>
                                         </div>
                                     </div>
 
-                                    <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 text-sm text-slate-600">
+                                    <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
                                         {usuario.dni ? (
                                             <div className="flex items-center gap-2">
                                                 <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -294,7 +293,7 @@ export const Usuarios = () => {
                                     </div>
                                 </div>
 
-                                <div className="mt-auto flex gap-2 border-t border-slate-100 bg-slate-50/50 p-4">
+                                <div className="mt-auto flex gap-2 border-t border-slate-100 bg-slate-50/50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
                                     <button
                                         type="button"
                                         onClick={() => cambiarEstado(usuario)}
@@ -312,7 +311,7 @@ export const Usuarios = () => {
                                     <button
                                         type="button"
                                         onClick={() => eliminarUsuario(usuario)}
-                                        className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-200"
+                                        className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-200 dark:border-red-800 dark:bg-slate-800 dark:text-red-300 dark:hover:bg-red-950/40"
                                     >
                                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -324,7 +323,7 @@ export const Usuarios = () => {
                         ))}
                     </div>
                 ) : (
-                    <div className="rounded-xl border border-dashed border-slate-300 bg-white py-16 text-center">
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-white py-16 text-center dark:border-slate-600 dark:bg-slate-800">
                         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
                             <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />

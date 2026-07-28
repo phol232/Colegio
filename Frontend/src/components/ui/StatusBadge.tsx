@@ -1,10 +1,10 @@
 const variants = {
-  pendiente: 'bg-amber-50 text-amber-800 border-amber-200',
-  activa: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  rechazada: 'bg-red-50 text-red-800 border-red-200',
-  retirada: 'bg-slate-100 text-slate-600 border-slate-200',
-  elegible: 'bg-blue-50 text-blue-800 border-blue-200',
-  cerrado: 'bg-slate-100 text-slate-600 border-slate-200',
+  pendiente: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
+  activa: 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
+  rechazada: 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800',
+  retirada: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600',
+  elegible: 'bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
+  cerrado: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600',
 } as const;
 
 const labels: Record<keyof typeof variants, string> = {
