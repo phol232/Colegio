@@ -40,11 +40,38 @@ export interface DashboardStats {
   cursosPorNivel: { primaria: number; secundaria: number };
 }
 
+/** Sección con ocupación del período académico activo. */
+export interface SeccionConCupos {
+  id: number;
+  gradoId: number;
+  nombre: string;
+  capacidad: number;
+  matriculados: number;
+  vacantes: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface SeccionInfoDashboard {
+  id: number;
+  nombre: string;
+  nivel: string;
+  grado_numero: number;
+  estudiantes_actual: number;
+  capacidad: number;
+  vacantes: number;
+  porcentaje_ocupacion: number;
+  docente_tutor: string;
+}
+
 export interface IAdminRepository {
   getDashboardStats(): Promise<DashboardStats>;
-  getSeccionesInfo(): Promise<Record<string, unknown>[]>;
+  getSeccionesInfo(): Promise<SeccionInfoDashboard[]>;
   getConfiguracion(): Promise<SystemConfig | null>;
   updateConfiguracion(input: UpdateSystemConfigInput): Promise<SystemConfig>;
+
+  /** Conteo de matrículas activas por sección en el período activo. */
+  getOcupacionSecciones(seccionIds: number[]): Promise<Record<number, number>>;
 
   listGrados(): Promise<Record<string, unknown>[]>;
   createGrado(
@@ -58,16 +85,18 @@ export interface IAdminRepository {
   ): Promise<Record<string, unknown>>;
   deleteGrado(id: number): Promise<void>;
 
-  listSeccionesByGrado(gradoId: number): Promise<Record<string, unknown>[]>;
+  listSeccionesByGrado(gradoId: number): Promise<SeccionConCupos[]>;
+  /** Todas las secciones con cupos (una sola query de ocupación). */
+  listAllSeccionesConCupos(): Promise<SeccionConCupos[]>;
   createSeccion(
     gradoId: number,
     nombre: string,
     capacidad: number,
-  ): Promise<Record<string, unknown>>;
+  ): Promise<SeccionConCupos>;
   updateSeccion(
     id: number,
     input: { nombre?: string; capacidad?: number },
-  ): Promise<Record<string, unknown>>;
+  ): Promise<SeccionConCupos>;
   deleteSeccion(id: number): Promise<void>;
 
   listAllStudents(): Promise<Record<string, unknown>[]>;
