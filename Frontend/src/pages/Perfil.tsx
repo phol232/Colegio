@@ -217,8 +217,8 @@ export const Perfil = () => {
             <div className="flex justify-center px-4 py-8 md:px-6">
                 <div className="w-full max-w-5xl">
                     <div className="mb-8 text-center">
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Mi Perfil</h1>
-                        <p className="mt-2 text-sm text-slate-500 md:text-base">
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl dark:text-slate-100">Mi Perfil</h1>
+                        <p className="mt-2 text-sm text-slate-500 md:text-base dark:text-slate-400">
                             Administra tu información personal y la seguridad de tu cuenta
                         </p>
                     </div>
@@ -227,8 +227,8 @@ export const Perfil = () => {
                         <div
                             className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${
                                 mensaje.tipo === 'success'
-                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                                    : 'border-red-200 bg-red-50 text-red-800'
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                    : 'border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300'
                             }`}
                         >
                             {mensaje.tipo === 'success' ? (
@@ -244,7 +244,7 @@ export const Perfil = () => {
                         {/* Columna izquierda — resumen + seguridad */}
                         <div className="space-y-6 lg:col-span-2">
                             <Card className="overflow-hidden">
-                                <div className="bg-slate-50 px-6 py-8 text-center">
+                                <div className="bg-slate-50 px-6 py-8 text-center dark:bg-slate-800/60">
                                     <input
                                         ref={avatarInputRef}
                                         type="file"
@@ -257,10 +257,10 @@ export const Perfil = () => {
                                             <img
                                                 src={perfil.avatar}
                                                 alt={perfil.name}
-                                                className="h-28 w-28 rounded-full border-4 border-white object-cover shadow-md"
+                                                className="h-28 w-28 rounded-full border-4 border-white object-cover shadow-md dark:border-slate-700"
                                             />
                                         ) : (
-                                            <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-sidebar-bg text-4xl font-bold text-white shadow-md">
+                                            <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-sidebar-bg text-4xl font-bold text-white shadow-md dark:border-slate-700">
                                                 {perfil.name.charAt(0).toUpperCase() || 'U'}
                                             </div>
                                         )}
@@ -274,8 +274,8 @@ export const Perfil = () => {
                                             <Camera className="h-4 w-4" />
                                         </button>
                                     </div>
-                                    <h2 className="text-xl font-semibold text-slate-900">{perfil.name || user?.name}</h2>
-                                    <p className="mt-1 text-sm text-slate-500">{perfil.email || user?.email}</p>
+                                    <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{perfil.name || user?.name}</h2>
+                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{perfil.email || user?.email}</p>
 
                                     <div className="mt-4 flex flex-wrap justify-center gap-2">
                                         <Button
@@ -302,7 +302,7 @@ export const Perfil = () => {
 
                                 <CardContent className="space-y-5 pt-6">
                                     <div className="space-y-2">
-                                        <Label className="flex items-center gap-2 text-slate-600">
+                                        <Label className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                                             <Shield className="h-4 w-4" />
                                             Rol en el sistema
                                         </Label>
@@ -322,21 +322,21 @@ export const Perfil = () => {
                                     </div>
 
                                     {fechaRegistro && (
-                                        <div className="rounded-lg border border-slate-100 bg-slate-50/80 px-4 py-3">
-                                            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Miembro desde</p>
-                                            <p className="mt-1 text-sm font-medium text-slate-700">{fechaRegistro}</p>
+                                        <div className="rounded-lg border border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/80">
+                                            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Miembro desde</p>
+                                            <p className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-200">{fechaRegistro}</p>
                                         </div>
                                     )}
 
                                     {user?.role === 'estudiante' && situacionAcademica && (
-                                        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-                                            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                                        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800/80">
+                                            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
                                                 Situación académica
                                             </p>
-                                            <p className="mt-1 text-sm font-medium text-slate-800">
+                                            <p className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">
                                                 {situacionAcademica.grado} · {situacionAcademica.seccion}
                                             </p>
-                                            <p className="mt-0.5 text-xs capitalize text-slate-500">
+                                            <p className="mt-0.5 text-xs capitalize text-slate-500 dark:text-slate-400">
                                                 Matrícula {situacionAcademica.estado}
                                             </p>
                                         </div>
@@ -376,7 +376,7 @@ export const Perfil = () => {
                                 </CardHeader>
 
                                 {mostrarCambiarPassword && (
-                                    <CardContent className="border-t border-slate-100 pt-5">
+                                    <CardContent className="border-t border-slate-100 pt-5 dark:border-slate-700">
                                         <form id="password-form" onSubmit={handleCambiarPassword} className="space-y-4">
                                             <div className="space-y-2">
                                                 <Label htmlFor="current_password">Contraseña actual</Label>
